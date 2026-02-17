@@ -4,4 +4,25 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "geopandas>=1.1.2",
+    "geopolars>=0.1.0a4",
+    "icecream>=2.1.10",
+    "loguru>=0.7.3",
+    "pandas>=3.0.0",
+    "polars>=1.38.1",
+    "project-paths>=1.1.1",
+    "python-dotenv>=1.2.1",
+    "ratelimit>=2.2.1",
+    "requests>=2.32.5",
+    "rich>=14.3.2",
+    "shapely>=2.1.2",
+    "statxplore>=0.0.1.post1",
+]
+
+[tool.project-paths]
+data_raw = "data/raw"
+data_processed = "data/processed"
+data_lookup = "data/lookup"
+data_output = "data/output"
+data_config = "data/config"
