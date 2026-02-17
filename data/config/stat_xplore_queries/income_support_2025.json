@@ -1,0 +1,15 @@
+{
+  "database" : "str:database:IS",
+  "measures" : [ "str:count:IS:V_F_IS" ],
+  "recodes" : {
+    "str:field:IS:F_IS_QTR:DATE_NAME" : {
+      "map" : [ [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202402" ], [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202405" ], [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202408" ], [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202411" ], [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202502" ], [ "str:value:IS:F_IS_QTR:DATE_NAME:C_IS_QTR:202505" ] ],
+      "total" : false
+    },
+    "str:field:IS:V_F_IS:COA_CODE" : {
+      "map" : [ [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014601" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014602" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014603" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014605" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01032516" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01032517" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014688" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014689" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014690" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014691" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014692" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014693" ], [ "str:value:IS:V_F_IS:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014694" ] ],
+      "total" : true
+    }
+  },
+  "dimensions" : [ [ "str:field:IS:V_F_IS:COA_CODE" ], [ "str:field:IS:F_IS_QTR:DATE_NAME" ] ]
+}

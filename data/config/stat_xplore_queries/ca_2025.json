@@ -1,0 +1,15 @@
+{
+  "database" : "str:database:CA_In_Payment_New",
+  "measures" : [ "str:count:CA_In_Payment_New:V_F_CA_In_Payment_New" ],
+  "recodes" : {
+    "str:field:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE" : {
+      "map" : [ [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014605" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014602" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01032517" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01032516" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014603" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014601" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014691" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014693" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014692" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014689" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014690" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014694" ], [ "str:value:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE:V_C_MASTERGEOG11_LSOA_TO_MSOA:E01014688" ] ],
+      "total" : true
+    },
+    "str:field:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME" : {
+      "map" : [ [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202402" ], [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202405" ], [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202408" ], [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202411" ], [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202502" ], [ "str:value:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME:C_CA_QTR_New:202505" ] ],
+      "total" : false
+    }
+  },
+  "dimensions" : [ [ "str:field:CA_In_Payment_New:V_F_CA_In_Payment_New:COA_CODE" ], [ "str:field:CA_In_Payment_New:F_CA_QTR_New:DATE_NAME" ] ]
+}

@@ -1,0 +1,86 @@
+{
+    "ratio_fastfood_to_dining": {
+        "numerator": "fast_food_takeaway",
+        "denominator": "food_dining",
+        "description": "Food environment quality - higher ratio indicates 'food swamp' conditions",
+        "expected_direction": "higher = more deprivation"
+    },
+    "ratio_alcohol_gambling_to_cultural": {
+        "numerator": "alcohol_gambling",
+        "denominator": "cultural_entertainment",
+        "description": "Environmental bads vs cultural capital - betting shops 10x more likely in deprived areas",
+        "expected_direction": "higher = more deprivation"
+    },
+    "ratio_alcohol_gambling_to_financial": {
+        "numerator": "alcohol_gambling",
+        "denominator": "financial_services",
+        "description": "Harmful outlets vs financial inclusion - bank closures correlate with betting shop proliferation",
+        "expected_direction": "higher = more deprivation"
+    },
+    "ratio_fastfood_to_healthcare": {
+        "numerator": "fast_food_takeaway",
+        "denominator": "healthcare_access",
+        "description": "Food swamp vs health infrastructure - captures health environment quality",
+        "expected_direction": "higher = more deprivation"
+    },
+    "ratio_sustainable_to_car_transport": {
+        "numerator": "sustainable_transport",
+        "denominator": "transport_car",
+        "description": "Cycling/sharing infrastructure vs car dependency - higher cycling infrastructure in affluent/gentrifying areas",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_financial_to_alcohol_gambling": {
+        "numerator": "financial_services",
+        "denominator": "alcohol_gambling",
+        "description": "Financial inclusion vs harmful outlets - inverse measure of economic health",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_cultural_to_fastfood": {
+        "numerator": "cultural_entertainment",
+        "denominator": "fast_food_takeaway",
+        "description": "Cultural capital vs food desert - theatres/cinemas indicate disposable income",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_education_to_alcohol_gambling": {
+        "numerator": "education_skills",
+        "denominator": "alcohol_gambling",
+        "description": "Educational infrastructure vs deprivation markers",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_higher_ed_to_fastfood": {
+        "numerator": "higher_education_research",
+        "denominator": "fast_food_takeaway",
+        "description": "Knowledge economy presence vs food swamp - university areas have different character",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_professional_to_community": {
+        "numerator": "professional_services",
+        "denominator": "community_social",
+        "description": "Economic dynamism indicator - coworking/conferences vs general community facilities",
+        "expected_direction": "higher = less deprivation (but may indicate gentrification)"
+    },
+    "ratio_childcare_to_alcohol_gambling": {
+        "numerator": "childcare_early_years",
+        "denominator": "alcohol_gambling",
+        "description": "Family-friendliness indicator - child-oriented services vs adult venues",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_public_amenities_to_alcohol_gambling": {
+        "numerator": "public_amenities_environment",
+        "denominator": "alcohol_gambling",
+        "description": "Public realm investment vs harmful private venues - benches/fountains indicate civic investment",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_healthcare_to_alcohol_gambling": {
+        "numerator": "healthcare_access",
+        "denominator": "alcohol_gambling",
+        "description": "Health infrastructure vs harmful outlets",
+        "expected_direction": "higher = less deprivation"
+    },
+    "ratio_essential_to_alcohol_gambling": {
+        "numerator": "essential_services",
+        "denominator": "alcohol_gambling",
+        "description": "Essential public services vs deprivation markers",
+        "expected_direction": "higher = less deprivation"
+    }
+}

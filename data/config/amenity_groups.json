@@ -1,0 +1,166 @@
+{
+    "healthcare_access": [
+        "hospital",
+        "clinic",
+        "doctors",
+        "dentist",
+        "pharmacy",
+        "veterinary"
+    ],
+    "education_skills": [
+        "school",
+        "kindergarten",
+        "college",
+        "university",
+        "library",
+        "language_school",
+        "music_school",
+        "prep_school",
+        "training",
+        "dancing_school",
+        "dojo"
+    ],
+    "financial_services": [
+        "bank",
+        "atm",
+        "bureau_de_change",
+        "financial_advice"
+    ],
+    "food_dining": [
+        "restaurant",
+        "cafe",
+        "food_court",
+        "ice_cream"
+    ],
+    "fast_food_takeaway": [
+        "fast_food"
+    ],
+    "alcohol_gambling": [
+        "pub",
+        "bar",
+        "nightclub",
+        "stripclub",
+        "casino",
+        "gambling"
+    ],
+    "community_social": [
+        "community_centre",
+        "social_facility",
+        "youth_centre",
+        "scout_hut",
+        "club",
+        "library",
+        "public_building",
+        "events_venue",
+        "church_hall"
+    ],
+    "cultural_entertainment": [
+        "theatre",
+        "cinema",
+        "concert_hall",
+        "music_venue",
+        "arts_centre",
+        "studio",
+        "festival_grounds"
+    ],
+    "public_services_civic": [
+        "police",
+        "fire_station",
+        "post_office",
+        "post_box",
+        "townhall",
+        "courthouse",
+        "prison",
+        "archive"
+    ],
+    "transport_car": [
+        "parking",
+        "parking_space",
+        "parking_entrance",
+        "fuel",
+        "car_wash",
+        "car_rental",
+        "vehicle_inspection",
+        "taxi"
+    ],
+    "transport_public": [
+        "bus_station",
+        "ferry_terminal",
+        "taxi"
+    ],
+    "sustainable_transport": [
+        "bicycle_parking",
+        "bicycle_rental",
+        "bicycle_repair_station",
+        "car_sharing",
+        "charging_station",
+        "motorcycle_parking",
+        "motorcycle_rental"
+    ],
+    "childcare_early_years": [
+        "childcare",
+        "kindergarten"
+    ],
+    "elderly_care": [
+        "nursing_home",
+        "retirement_home"
+    ],
+    "public_amenities_environment": [
+        "bench",
+        "fountain",
+        "drinking_water",
+        "water_point",
+        "toilets",
+        "public_bath",
+        "shelter",
+        "public_bookcase",
+        "clock",
+        "telephone",
+        "bbq"
+    ],
+    "waste_sanitation": [
+        "recycling",
+        "waste_basket",
+        "waste_disposal",
+        "waste_transfer_station",
+        "sanitary_dump_station",
+        "grit_bin"
+    ],
+    "religious_spiritual": [
+        "place_of_worship",
+        "grave_yard"
+    ],
+    "higher_education_research": [
+        "university",
+        "college",
+        "research_institute"
+    ],
+    "professional_services": [
+        "coworking_space",
+        "conference_centre",
+        "workshop",
+        "training"
+    ],
+    "retail_commerce": [
+        "marketplace",
+        "vending_machine",
+        "atm",
+        "parcel_locker"
+    ],
+    "essential_services": [
+        "hospital",
+        "pharmacy",
+        "post_office",
+        "police",
+        "fire_station",
+        "doctors",
+        "dentist"
+    ],
+    "social_support": [
+        "social_facility",
+        "animal_shelter",
+        "childcare",
+        "nursing_home",
+        "retirement_home"
+    ]
+}

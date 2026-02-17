@@ -1,0 +1,19 @@
+{
+  "database" : "str:database:UC_Monthly",
+  "measures" : [ "str:count:UC_Monthly:V_F_UC_CASELOAD_FULL" ],
+  "recodes" : {
+    "str:field:UC_Monthly:F_UC_DATE:DATE_NAME" : {
+      "map" : [ [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202512" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202511" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202510" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202509" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202508" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202507" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202506" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202505" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202504" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202503" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202502" ], [ "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:202501" ] ],
+      "total" : false
+    },
+    "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE" : {
+      "map" : [ [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014601" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014602" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014603" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014605" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01032516" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01032517" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014688" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014689" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014690" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014691" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014692" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014693" ], [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA:E01014694" ] ],
+      "total" : true
+    },
+    "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME" : {
+      "map" : [ [ "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:DF" ] ],
+      "total" : false
+    }
+  },
+  "dimensions" : [ [ "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE" ], [ "str:field:UC_Monthly:F_UC_DATE:DATE_NAME" ], [ "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME" ] ]
+}
