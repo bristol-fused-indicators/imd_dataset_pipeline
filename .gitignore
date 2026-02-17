@@ -10,3 +10,10 @@ wheels/
 .venv
 
 .env
+
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.parquet
+data/processed/*.parquet
+data/output/*.parquet
+data/output/*.csv
