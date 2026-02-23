@@ -1,5 +1,4 @@
 import polars as pl
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 
@@ -68,7 +67,7 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def process():
+def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
     logger.info("processing universal credit data")
     df = (
         pl.scan_parquet(paths.data_raw / "universal_credit.parquet")
@@ -86,9 +85,10 @@ def process():
         .pipe(calculate_ratios)
     )
 
-    ic(df.collect())
+    if persist_intermediate_file:
+        df.sink_parquet(paths.data_processed / "universal_credit.parquet")
 
-    df.sink_parquet("test.parquet")
+    return df
 
 
 if __name__ == "__main__":
