@@ -19,4 +19,4 @@ data/processed/*.parquet
 data/output/*.parquet
 data/output/*.csv
 
-.vscode
+.vscode/*
