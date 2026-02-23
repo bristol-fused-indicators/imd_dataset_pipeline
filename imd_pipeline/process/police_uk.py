@@ -1,5 +1,5 @@
 from datetime import date
-from functools import partial
+from functools import cache, partial
 
 import polars as pl
 from icecream import ic
@@ -16,15 +16,18 @@ def _month(month_decriment: int, startdate: date):
     return date(year, month, 1)
 
 
-def file_in_window(filename, window_months, snapshot_date) -> bool:
+@cache
+def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
     start = date.fromisoformat(snapshot_date)
     month = partial(_month, startdate=start)
-    valid_names = [
-        month(decriment).strftime("%Y-%m") + ".parquet"
-        for decriment in range(window_months)
-    ]
-    ic(valid_names)
-    return filename in valid_names
+    return frozenset(
+        month(decrement).strftime("%Y-%m") + ".parquet"
+        for decrement in range(window_months)
+    )
+
+
+def file_in_window(filename, window_months, snapshot_date) -> bool:
+    return filename in _valid_names(window_months, snapshot_date)
 
 
 def process(window_months, snapshot_date) -> pl.LazyFrame:
