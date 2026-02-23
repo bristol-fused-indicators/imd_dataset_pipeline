@@ -73,7 +73,7 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     return dataset
 
 
-def get_all_data(force: bool = False):
+def fetch(force: bool = False):
     queries = get_queries()
     logger.info("loaded queries", num=len(queries))
 
@@ -111,7 +111,7 @@ def get_all_data(force: bool = False):
 
 
 def main():
-    get_all_data(force=False)
+    fetch(force=False)
 
 
 if __name__ == "__main__":
