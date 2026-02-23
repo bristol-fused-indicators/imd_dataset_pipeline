@@ -1,3 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages=["src"]
+
 [project]
 name = "imd-dataset-pipeline"
 version = "0.1.0"
@@ -26,3 +33,10 @@ data_processed = "data/processed"
 data_lookup = "data/lookup"
 data_output = "data/output"
 data_config = "data/config"
+
+[tool.imd-pipeline]
+snapshot_year = 2025
+police_start_year = 2023
+police_end_year = 2026
+osm_buffer_distances = [0, 250, 500, 1000, 2500, 5000]
+bristol_lad_code = "E06000023"

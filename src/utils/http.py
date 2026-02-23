@@ -23,6 +23,7 @@ def create_session(
     )
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=retry))
+    session.mount("http://", HTTPAdapter(max_retries=retry))
     return session
 
 

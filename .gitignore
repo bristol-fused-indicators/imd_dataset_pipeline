@@ -14,6 +14,7 @@ wheels/
 data/raw/*.csv
 data/raw/*.json
 data/raw/*.parquet
+data/raw/police_uk/
 data/processed/*.parquet
 data/output/*.parquet
 data/output/*.csv
