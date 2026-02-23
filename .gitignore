@@ -18,3 +18,5 @@ data/raw/police_uk/
 data/processed/*.parquet
 data/output/*.parquet
 data/output/*.csv
+
+.vscode

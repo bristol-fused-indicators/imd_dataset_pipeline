@@ -64,8 +64,10 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # construct dataframe
-    dataset = pl.DataFrame(data_body, schema=months, orient="row").with_columns(
-        [pl.Series("lsoa_name", lsoas)]
+    dataset = (
+        pl.DataFrame(data_body, schema=months, orient="row")
+        .with_columns([pl.Series("lsoa_name", lsoas)])
+        .unpivot(index="lsoa_name", variable_name="month")
     )
 
     return dataset
@@ -94,8 +96,16 @@ def get_all_data(force: bool = False):
         name: transform_to_dataframe(response) for name, response in responses.items()
     }
 
-    for name, dataframe in dataframes.items():
-        dataframe.write_parquet(file=paths.data_raw / f"{name}.parquet")
+    test = [print(name) for name, _ in dataframes.items()]
+
+    dataframes = [
+        dataframe.with_columns(condition_group=pl.lit(name))
+        for name, dataframe in dataframes.items()
+    ]
+    combined_frame = pl.concat(dataframes)
+    ic(combined_frame["condition_group"].unique())
+
+    combined_frame.write_parquet(file=paths.data_raw / "universal_credit.parquet")
 
     logger.info("universal credit data written to file")
 

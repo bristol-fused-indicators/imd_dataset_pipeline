@@ -10,7 +10,7 @@ from project_paths import paths
 from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
-from src.utils.http import create_session
+from imd_pipeline.utils.http import create_session
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
 OUTPUT_DIR = paths.data_raw / "police_uk"
@@ -83,7 +83,7 @@ def fetch_month(
     output_dir: Path,
     force: bool,
 ) -> Path:
-    month_path = output_dir / f"{month}.csv"
+    month_path = output_dir / f"{month}.parquet"
 
     if month_path.exists() and not force:
         logger.debug(f"cache hit: {month_path}")
@@ -120,7 +120,7 @@ def fetch_month(
         },
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    df.write_csv(month_path)
+    df.write_parquet(month_path)
     logger.info(f"wrote {len(df)} crimes for {month}")
     return month_path
 
@@ -165,7 +165,7 @@ def fetch(
         month_paths.append(path)
 
     # consolidate all months into a single file
-    all_crimes_path = OUTPUT_DIR / "all_crimes.csv"
+    all_crimes_path = OUTPUT_DIR / "all_crimes.parquet"
     if (
         force
         or not all_crimes_path.exists()
@@ -175,10 +175,10 @@ def fetch(
             if p.exists()
         )
     ):
-        frames = [pl.scan_csv(p) for p in month_paths if p.exists()]
+        frames = [pl.scan_parquet(p) for p in month_paths if p.exists()]
         if frames:
             combined = pl.concat(frames).collect()
-            combined.write_csv(all_crimes_path)
+            combined.write_parquet(all_crimes_path)
             logger.info(
                 f"consolidated {len(combined)} total crimes to {all_crimes_path}"
             )
