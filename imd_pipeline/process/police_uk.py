@@ -105,7 +105,7 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     return lf.with_columns(
         pl.sum_horizontal(slt.by_name(CRIME_CATEGORIES)).alias("total_crimes")
     ).with_columns(
-        (pl.sum_horizontal(slt.by_name(CRIME_OUTCOMES)) / "total_crimes").alias(
+        (pl.sum_horizontal(slt.by_name(CRIME_OUTCOMES)) / pl.col("total_crimes")).alias(
             "resolution_rate"
         )
     )
