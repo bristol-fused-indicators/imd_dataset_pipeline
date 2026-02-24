@@ -1,37 +1,37 @@
-# from datetime import datetime
-# from pathlib import Path
+from datetime import datetime
+from pathlib import Path
 
-# from loguru import logger
-# from project_paths import paths
+from loguru import logger
+from project_paths import paths
 
-# from imd_pipeline.utils.http import cached_fetch, create_session
+from imd_pipeline.utils.http import cached_fetch, create_session
 
-# BASE_URL = (
-#     "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
-# )
-# MONTHLY_UPDATE_URL = f"{BASE_URL}pp-monthly-update-new-version.csv"
-# YEARLY_URL_TEMPLATE = f"{BASE_URL}pp-{{year}}.csv"
+BASE_URL = (
+    "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
+)
+MONTHLY_UPDATE_URL = f"{BASE_URL}pp-monthly-update-new-version.csv"
+YEARLY_URL_TEMPLATE = f"{BASE_URL}pp-{{year}}.csv"
 
-# RAW_DIR = paths.data_raw / "land_registry"
+RAW_DIR = paths.data_raw / "land_registry"
 
-# COLUMNS = [
-#     "transaction_id",
-#     "price",
-#     "date_of_transfer",
-#     "postcode",
-#     "property_type",
-#     "old_new",
-#     "duration",
-#     "paon",
-#     "saon",
-#     "street",
-#     "locality",
-#     "town_city",
-#     "district",
-#     "county",
-#     "ppd_category",
-#     "record_status",
-# ]
+COLUMNS = [
+    "transaction_id",
+    "price",
+    "date_of_transfer",
+    "postcode",
+    "property_type",
+    "old_new",
+    "duration",
+    "paon",
+    "saon",
+    "street",
+    "locality",
+    "town_city",
+    "district",
+    "county",
+    "ppd_category",
+    "record_status",
+]
 
 
 # def fetch_yearly(year: int, session, force: bool = False) -> Path:
@@ -69,7 +69,13 @@ from requests import Session
 from imd_pipeline.utils.http import create_session
 
 
-def fetch_yearly(session: Session, year: int): ...
+def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Path:
+    url = YEARLY_URL_TEMPLATE.format(year=year)
+    output_path = RAW_DIR / f"land_registry_price_paid_{year}.csv"
+    logger.info("fetching yearly land registry data", year=year)
+    return cached_fetch(
+        url=url, output_path=output_path, session=session, force=force_refresh
+    )
 
 
 def _required_years(snapshot_date: str, window_months: int) -> list[int]:
