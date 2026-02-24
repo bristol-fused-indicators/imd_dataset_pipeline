@@ -1,17 +1,9 @@
 import tomllib
-from dataclasses import dataclass
 
 from project_paths import paths
 
-from imd_pipeline import fetch, process
-
-# from imd_pipeline.fetch import police_uk, universal_credit
-
-
-@dataclass
-class Config:
-    window_months: int
-    snapshot_date: str
+from imd_pipeline import combine, fetch, process
+from imd_pipeline.config import Config
 
 
 def parse_config() -> Config:
@@ -30,10 +22,15 @@ def main():
     # fetch the raw data from source
     fetch.police_uk.fetch()
     fetch.universal_credit.fetch()
+    fetch.connectivity.fetch()
 
     # process raw data into tabular feature sets
     crime_data = process.police_uk.process(12, "2025-12-01")
     uc_data = process.universal_credit.process()
+    connect_data = process.connectivity.process()
+
+    # combine processed data
+    combined = combine.join(crime_data, uc_data, connect_data)
 
 
 if __name__ == "__main__":

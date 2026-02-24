@@ -1,1 +1,1 @@
-from imd_pipeline.fetch import police_uk, universal_credit
+from imd_pipeline.fetch import connectivity, police_uk, universal_credit

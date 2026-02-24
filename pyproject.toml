@@ -14,7 +14,9 @@ requires-python = ">=3.13"
 dependencies = [
     "geopandas>=1.1.2",
     "geopolars>=0.1.0a4",
+    "joblib>=1.5.3",
     "loguru>=0.7.3",
+    "odfpy>=1.4.1",
     "pandas>=3.0.0",
     "polars>=1.38.1",
     "project-paths>=1.1.1",
