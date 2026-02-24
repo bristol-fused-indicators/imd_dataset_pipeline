@@ -17,25 +17,6 @@ YEARLY_URL_TEMPLATE = f"{BASE_URL}pp-{{year}}.csv"
 
 RAW_DIR = paths.data_raw / "land_registry"
 
-COLUMNS = [
-    "transaction_id",
-    "price",
-    "date_of_transfer",
-    "postcode",
-    "property_type",
-    "old_new",
-    "duration",
-    "paon",
-    "saon",
-    "street",
-    "locality",
-    "town_city",
-    "district",
-    "county",
-    "ppd_category",
-    "record_status",
-]
-
 
 # def fetch_monthly_update(session, force: bool = False) -> Path:
 #     date_key = datetime.now().strftime("%Y-%m")

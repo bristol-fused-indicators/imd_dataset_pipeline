@@ -102,7 +102,10 @@ def fetch(force: bool = False):
         for name, dataframe in dataframes.items()
     ]
     combined_frame = pl.concat(dataframes)
-    logger.debug("condition groups in combined frame", groups=combined_frame["condition_group"].unique().to_list())
+    logger.debug(
+        "condition groups in combined frame",
+        groups=combined_frame["condition_group"].unique().to_list(),
+    )
 
     combined_frame.write_parquet(file=paths.data_raw / "universal_credit.parquet")
 

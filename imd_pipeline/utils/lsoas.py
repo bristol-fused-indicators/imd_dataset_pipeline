@@ -4,21 +4,20 @@ import polars as pl
 from loguru import logger
 
 
-def filter_bristol(lf: pl.LazyFrame, code_col: str, geography_path: Path) -> pl.LazyFrame:
+def filter_bristol(
+    lf: pl.LazyFrame, code_col: str, geography_path: Path
+) -> pl.LazyFrame:
     bristol_codes = pl.scan_csv(geography_path).select("lsoa_code").unique()
 
     if code_col == "lsoa_code":
         result = lf.join(bristol_codes, on="lsoa_code", how="semi")
     else:
-        result = (
-            lf.join(
-                bristol_codes,
-                left_on=code_col,
-                right_on="lsoa_code",
-                how="semi",
-            )
-            .rename({code_col: "lsoa_code"})
-        )
+        result = lf.join(
+            bristol_codes,
+            left_on=code_col,
+            right_on="lsoa_code",
+            how="semi",
+        ).rename({code_col: "lsoa_code"})
 
     logger.debug("filter_bristol applied on column '{}'", code_col)
     return result
@@ -55,3 +54,15 @@ def map_lsoa_names_to_codes(
 
     logger.debug("map_lsoa_names_to_codes applied on column '{}'", name_col)
     return result
+
+
+def map_postcode_to_lsoa_code(
+    lf: pl.LazyFrame, postcode_col: str, lookup_path: Path
+) -> pl.LazyFrame:
+
+    logger.debug("mapping postcode to lsoa", on_col=postcode_col)
+    mapping = pl.scan_csv(lookup_path).select("postcode", "lsoa_code")
+
+    return lf.join(mapping, how="left", left_on=postcode_col, right_on="postcode").drop(
+        postcode_col
+    )
