@@ -122,6 +122,7 @@ def process(
     is_valid_file = partial(
         file_in_window, window_months=window_months, snapshot_date=snapshot_date
     )
+
     files = [file for file in dir.glob("*.parquet") if is_valid_file(file.name)]
     logger.info("found files in window", count=len(files))
 

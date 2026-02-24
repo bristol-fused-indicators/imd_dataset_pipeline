@@ -1,8 +1,11 @@
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 
+from dateutil.relativedelta import relativedelta
+from icecream import ic
 from loguru import logger
 from project_paths import paths
+from requests import Session
 
 from imd_pipeline.utils.http import cached_fetch, create_session
 
@@ -34,39 +37,11 @@ COLUMNS = [
 ]
 
 
-# def fetch_yearly(year: int, session, force: bool = False) -> Path:
-#     url = YEARLY_URL_TEMPLATE.format(year=year)
-#     dest = RAW_DIR / f"pp-{year}.csv"
-#     logger.info("fetching yearly land registry data", year=year)
-#     return cached_fetch(url, dest, session, force=force)
-
-
 # def fetch_monthly_update(session, force: bool = False) -> Path:
 #     date_key = datetime.now().strftime("%Y-%m")
 #     dest = RAW_DIR / f"pp-monthly-update-{date_key}.csv"
 #     logger.info("fetching monthly land registry update", date_key=date_key)
 #     return cached_fetch(MONTHLY_UPDATE_URL, dest, session, force=force)
-
-
-# def fetch(force: bool = False, bootstrap_years: list[int] | None = None) -> Path:
-#     session = create_session()
-
-#     if bootstrap_years:
-#         for year in bootstrap_years:
-#             fetch_yearly(year, session, force=force)
-
-#     fetch_monthly_update(session, force=force)
-
-#     logger.info("land registry fetch complete", directory=str(RAW_DIR))
-#     return RAW_DIR
-
-from datetime import date
-
-from dateutil.relativedelta import relativedelta
-from icecream import ic
-from requests import Session
-
-from imd_pipeline.utils.http import create_session
 
 
 def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Path:
