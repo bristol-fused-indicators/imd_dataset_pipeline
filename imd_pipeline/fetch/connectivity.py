@@ -1,7 +1,5 @@
 from io import BytesIO
-from pathlib import Path
 
-import joblib
 import pandas as pd
 from loguru import logger
 from project_paths import paths
@@ -21,15 +19,9 @@ def fetch(force: bool = False):
     logger.info("downloading connectivity data", url=url)
     r = session.get(url)
 
-    df_cache = Path("df_cache.joblib")
-
-    if df_cache.exists():
-        df = joblib.load(df_cache)
-    else:
-        df: pd.DataFrame = pd.read_excel(
-            BytesIO(r.content), engine="odf", sheet_name="LSOA", header=2
-        )
-        joblib.dump(df, df_cache)
+    df: pd.DataFrame = pd.read_excel(
+        BytesIO(r.content), engine="odf", sheet_name="LSOA", header=2
+    )
 
     logger.debug("connectivity data loaded", shape=df.shape)
 

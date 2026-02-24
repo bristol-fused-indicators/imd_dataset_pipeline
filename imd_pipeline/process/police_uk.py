@@ -43,7 +43,7 @@ CRIME_OUTCOMES = [
 ]
 
 
-def _month(month_decriment: int, startdate: date):
+def _month(month_decriment: int, startdate: date) -> date:
     new_month = startdate.month - 1 - month_decriment
     year = startdate.year + new_month // 12
     month = new_month % 12 + 1
@@ -113,7 +113,11 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
-    logger.info("processing police data", window_months=window_months, snapshot_date=snapshot_date)
+    logger.info(
+        "processing police data",
+        window_months=window_months,
+        snapshot_date=snapshot_date,
+    )
     dir = paths.data_raw / "police_uk"
     is_valid_file = partial(
         file_in_window, window_months=window_months, snapshot_date=snapshot_date
@@ -134,7 +138,9 @@ def process(
 
     if persist_intermediate_file:
         dataframe.sink_parquet(paths.data_processed / "police_uk.parquet")
-        logger.info("police data written", path=str(paths.data_processed / "police_uk.parquet"))
+        logger.info(
+            "police data written", path=str(paths.data_processed / "police_uk.parquet")
+        )
 
     return dataframe
 
