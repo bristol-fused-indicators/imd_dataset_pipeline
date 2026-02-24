@@ -341,6 +341,10 @@ def process() -> pl.LazyFrame:
     # reset index to put lsoa_code back as a column
     lsoa_gdf = lsoa_gdf.reset_index()
 
+    lsoa_gdf.drop([col for col in lsoa_gdf.columns if col.startswith("geom")])
+
+    return pl.from_pandas(lsoa_gdf).lazy()
+
 
 if __name__ == "__main__":
     process()
