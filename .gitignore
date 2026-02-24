@@ -18,5 +18,6 @@ data/raw/police_uk/
 data/processed/*.parquet
 data/output/*.parquet
 data/output/*.csv
+data/raw/land_registry/*.csv
 
 .vscode/*

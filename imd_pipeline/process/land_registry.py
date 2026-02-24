@@ -36,10 +36,82 @@ def get_window_bounds(snapshot_date: str, window_months: int) -> tuple[date, dat
     return start, end
 
 
+def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return (
+        lf.select("lsoa_code", "price")
+        .group_by("lsoa_code")
+        .mean()
+        .rename({"price": "lsoa_average_price"})
+    )
+
+
+def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return (
+        lf.select("lsoa_code", "price")
+        .group_by("lsoa_code")
+        .max()
+        .rename({"price": "lsoa_max_price"})
+    )
+
+
+def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return (
+        lf.select("lsoa_code", "property_type", "price")
+        .pivot(
+            index="lsoa_code",
+            on="property_type",
+            on_columns=["T", "F", "S", "D", "O"],
+            aggregate_function="mean",
+        )
+        .fill_null(0)
+        .rename(
+            {
+                "T": "T_mean_price",
+                "F": "F_mean_price",
+                "S": "S_mean_price",
+                "D": "D_mean_price",
+                "O": "O_mean_price",
+            }
+        )
+    )
+
+
+def transactions_in_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return lf.group_by("lsoa_code").len(name="total_transactions")
+
+
+def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    return (
+        lf.select("lsoa_code", "property_type", pl.lit("dummy"))
+        .pivot(
+            index="lsoa_code",
+            on="property_type",
+            on_columns=["T", "F", "S", "D", "O"],
+            aggregate_function="len",
+        )
+        .fill_null(0)
+        .rename(
+            {
+                "T": "T_count_transactions",
+                "F": "F_count_transactions",
+                "S": "S_count_transactions",
+                "D": "D_count_transactions",
+                "O": "O_count_transactions",
+            }
+        )
+    )
+
+
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     spine = lf.select("lsoa_code")
 
-    all_frames = []
+    all_frames = [
+        average_price_by_lsoa(lf),
+        max_price_by_lsoa(lf),
+        average_price_by_property_type(lf),
+        transactions_in_lsoa(lf),
+        transactions_per_property_type(lf),
+    ]
     for frame in all_frames:
         spine = spine.join(frame, how="left", on="lsoa_code")
 
@@ -87,6 +159,7 @@ def process(
             code_col="lsoa_code",
             geography_path=paths.data_lookup / "geography_lookup.csv",
         )
+        .pipe(aggregate_stats)
     )
 
     ic(dataframe.collect().head(), dataframe.collect().height)
