@@ -42,3 +42,7 @@ out geom;
     logger.info("open street map data saved", path=output_path)
 
     return response_path
+
+
+if __name__ == "__main__":
+    fetch()
