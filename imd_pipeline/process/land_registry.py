@@ -103,7 +103,7 @@ def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
-    spine = lf.select("lsoa_code")
+    spine = lf.select("lsoa_code").unique()
 
     all_frames = [
         average_price_by_lsoa(lf),
