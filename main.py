@@ -30,6 +30,7 @@ def main():
     fetch.universal_credit.fetch()
     fetch.connectivity.fetch()
     fetch.land_registry.fetch(window_months=12, snapshot_date="2025-12-01")
+    fetch.open_street_map.fetch()
     logger.info("fetch stage complete")
 
     # process raw data into tabular feature sets
@@ -37,10 +38,13 @@ def main():
     uc_data = process.universal_credit.process()
     connect_data = process.connectivity.process()
     price_paid_data = process.land_registry.process(12, "2025-12-01")
+    osm_data = process.open_street_map.process()
     logger.info("process stage complete")
 
     # combine processed data
-    combined = combine.join(crime_data, uc_data, connect_data, price_paid_data)
+    combined = combine.join(
+        crime_data, uc_data, connect_data, price_paid_data, osm_data
+    )
     logger.info("pipeline complete")
 
 
