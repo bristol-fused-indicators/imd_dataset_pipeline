@@ -34,7 +34,7 @@ def cached_fetch(
     force: bool = False,
 ) -> Path:
     if output_path.exists() and not force:
-        logger.debug(f"cache hit: {output_path}")
+        logger.debug("cache hit", path=output_path)
         return output_path
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +53,7 @@ def cached_fetch(
         tmp.unlink(missing_ok=True)
         raise
 
-    logger.info(f"saved {output_path}")
+    logger.info("saved", path=output_path)
     return output_path
 
 
@@ -65,7 +65,7 @@ def cached_fetch_json(
     params: dict | None = None,
 ) -> Path:
     if output_path.exists() and not force:
-        logger.debug(f"cache hit: {output_path}")
+        logger.debug("cache hit", path=output_path)
         return output_path
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,5 +77,5 @@ def cached_fetch_json(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(response.json(), f)
 
-    logger.info(f"saved {output_path}")
+    logger.info("saved", path=output_path)
     return output_path

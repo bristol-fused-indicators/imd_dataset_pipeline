@@ -4,7 +4,7 @@ from pathlib import Path
 from loguru import logger
 from project_paths import paths
 
-from src.utils.http import cached_fetch, create_session
+from imd_pipeline.utils.http import cached_fetch, create_session
 
 BASE_URL = (
     "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"

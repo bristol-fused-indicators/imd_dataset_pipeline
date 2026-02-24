@@ -3,7 +3,6 @@ from functools import cache, partial
 
 import polars as pl
 import polars.selectors as slt
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 
@@ -114,11 +113,13 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
+    logger.info("processing police data", window_months=window_months, snapshot_date=snapshot_date)
     dir = paths.data_raw / "police_uk"
     is_valid_file = partial(
         file_in_window, window_months=window_months, snapshot_date=snapshot_date
     )
     files = [file for file in dir.glob("*.parquet") if is_valid_file(file.name)]
+    logger.info("found files in window", count=len(files))
 
     dataframe = (
         pl.concat([pl.scan_parquet(file) for file in files])
@@ -133,6 +134,7 @@ def process(
 
     if persist_intermediate_file:
         dataframe.sink_parquet(paths.data_processed / "police_uk.parquet")
+        logger.info("police data written", path=str(paths.data_processed / "police_uk.parquet"))
 
     return dataframe
 

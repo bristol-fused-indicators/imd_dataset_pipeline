@@ -4,7 +4,6 @@ from pathlib import Path
 
 import polars as pl
 from dotenv import load_dotenv
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 from statxplore import http_session, objects
@@ -90,20 +89,20 @@ def fetch(force: bool = False):
         for name, query in queries.items()
     }
 
-    logger.info("got responses", count=len(responses))
+    logger.info("got responses", count=len(responses), names=list(responses.keys()))
 
     dataframes = {
         name: transform_to_dataframe(response) for name, response in responses.items()
     }
 
-    test = [print(name) for name, _ in dataframes.items()]
+    logger.debug("transformed queries to dataframes", names=list(dataframes.keys()))
 
     dataframes = [
         dataframe.with_columns(condition_group=pl.lit(name))
         for name, dataframe in dataframes.items()
     ]
     combined_frame = pl.concat(dataframes)
-    ic(combined_frame["condition_group"].unique())
+    logger.debug("condition groups in combined frame", groups=combined_frame["condition_group"].unique().to_list())
 
     combined_frame.write_parquet(file=paths.data_raw / "universal_credit.parquet")
 

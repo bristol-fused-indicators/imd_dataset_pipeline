@@ -68,7 +68,7 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
-    logger.info("processing universal credit data")
+    logger.info("processing universal credit data", source=str(paths.data_raw / "universal_credit.parquet"))
     df = (
         pl.scan_parquet(paths.data_raw / "universal_credit.parquet")
         .pipe(
@@ -87,6 +87,7 @@ def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
 
     if persist_intermediate_file:
         df.sink_parquet(paths.data_processed / "universal_credit.parquet")
+        logger.info("universal credit data written", path=str(paths.data_processed / "universal_credit.parquet"))
 
     return df
 
