@@ -7,6 +7,7 @@ import pandas as pd
 import polars as pl
 from geopandas import GeoDataFrame
 from icecream import ic
+from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
 
@@ -17,6 +18,7 @@ def count_ammenities(
     ammenities: Iterable,
     distance: int,
 ) -> pd.Series:
+
     _ammenities = {
         ammenity for ammenity in ammenities
     }  # convert to set to use membership methods
@@ -249,22 +251,20 @@ def get_polygon(x) -> Polygon:
 
 
 def process() -> pl.LazyFrame:
+
+    logger.info("setting up open street map processing...")
+
     response_file = paths.data_raw / "osm" / "overpass_response.json"
     with open(response_file) as file:
         data = json.load(file)
     map_elements = data.get("elements")
 
-    ic(len(map_elements))
-
     osm_points_gdf, osm_polygons_gdf, osm_lines_gdf = format_osm_geodataframes(
         map_elements=map_elements
     )
-    ic(osm_lines_gdf.shape, osm_polygons_gdf.shape, osm_points_gdf.shape)
 
     with open(paths.data_config / "amenity_groups.json", "r") as f:
         amenity_groups: dict = json.load(f)
-
-    ic(amenity_groups)
 
     # set up lsoa dataframe
     lsoa_gdf = gpd.read_file(paths.data_lookup / "geography_lookup.csv")[
@@ -286,18 +286,47 @@ def process() -> pl.LazyFrame:
         "lsoa_code"
     )
 
-    ic(lsoa_gdf.head(), lsoa_gdf.geometry)
+    logger.debug(
+        "set up for open street map processing complete",
+        len_map_elements=len(map_elements),
+        lsoa_frame=lsoa_gdf.shape,
+        point_frame=osm_points_gdf.shape,
+        poly_frame=osm_polygons_gdf.shape,
+        lines_frame=osm_lines_gdf.shape,
+        ammenity_groups=len(amenity_groups),
+    )
 
-    for group_name, group in amenity_groups.items():
-        for buffer_distance in [0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 5000]:
-            col_name = f"count_{group_name}_{buffer_distance}"
-            result = count_ammenities(
+    logger.debug("assigning counts of ammenity groups")
+
+    count_ammenities_df = pd.DataFrame(
+        {
+            f"count_{group_name}_{buffer_distance}": count_ammenities(
                 feature_frame=lsoa_gdf.reset_index(),
                 point_osm_data=osm_points_gdf,
                 ammenities=group,
                 distance=buffer_distance,
             )
-            lsoa_gdf[col_name] = result.reindex(lsoa_gdf.index).fillna(0)
+            .reindex(lsoa_gdf.index)
+            .fillna(0)
+            for group_name, group in amenity_groups.items()
+            for buffer_distance in [
+                0,
+                250,
+                500,
+                750,
+                1000,
+                1250,
+                1500,
+                2000,
+                2500,
+                5000,
+            ]
+        },
+        index=lsoa_gdf.index,
+    )
+    ic(count_ammenities_df.head())
+
+    logger.debug("finding nearest shop")
 
     nearest_shop = find_nearest_poi(
         feature_frame=lsoa_gdf.reset_index(),
@@ -307,6 +336,7 @@ def process() -> pl.LazyFrame:
     )
     lsoa_gdf["nearest_shop_0"] = nearest_shop.reindex(lsoa_gdf.index)
 
+    logger.debug("finding ratio of fastfood to dining")
     ratio_fastfood_dining = calculate_ratio_of_elements(
         feature_frame=lsoa_gdf.reset_index(),
         point_osm_data=osm_points_gdf,
@@ -320,23 +350,32 @@ def process() -> pl.LazyFrame:
         lsoa_gdf.index
     )
 
+    logger.debug("finding landuse share")
     landuse_shares = find_landuse_share(
         feature_frame=lsoa_gdf.reset_index(),
         polygon_osm_data=osm_polygons_gdf,
         distance=0,
     )
-    for landuse_type in landuse_shares.columns:
-        col_name = f"landuse_{landuse_type}_0"
-        lsoa_gdf[col_name] = (
-            landuse_shares[landuse_type].reindex(lsoa_gdf.index).fillna(0)
-        )
 
+    landuse_df = pd.DataFrame(
+        {
+            f"landuse_{landuse_type}_0": landuse_shares[landuse_type]
+            .reindex(lsoa_gdf.index)
+            .fillna(0)
+            for landuse_type in landuse_shares.columns
+        },
+        index=lsoa_gdf.index,
+    )
+
+    logger.debug("finding streetlit path %")
     lit_pct = find_streetlit_path_percent(
         feature_frame=lsoa_gdf.reset_index(),
         line_osm_data=osm_lines_gdf,
         distance=0,
     )
     lsoa_gdf["lit_path_pct_0"] = lit_pct.reindex(lsoa_gdf.index).fillna(0)
+
+    lsoa_gdf = pd.concat([lsoa_gdf, count_ammenities_df, landuse_df], axis=1)
 
     # reset index to put lsoa_code back as a column
     lsoa_gdf = lsoa_gdf.reset_index()
@@ -345,7 +384,7 @@ def process() -> pl.LazyFrame:
         columns=[col for col in lsoa_gdf.columns if col.startswith("geom")],
         inplace=True,
     )
-
+    logger.info("osm process complete")
     return pl.from_pandas(lsoa_gdf).lazy()
 
 
