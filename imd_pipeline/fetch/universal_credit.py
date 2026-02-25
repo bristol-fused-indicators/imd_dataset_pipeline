@@ -46,7 +46,7 @@ def get_data(query: dict, session, output_path: Path, force=False) -> dict:
 
     logger.info("querying statxplore...")
 
-    data = objects.Table.query_json(session, query)
+    data = objects.Table.query_json(session, json.dumps(query))
     output_path.write_text(data=json.dumps(data), encoding="utf-8")
     return data
 
