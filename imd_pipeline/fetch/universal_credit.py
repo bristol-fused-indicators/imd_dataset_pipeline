@@ -10,28 +10,43 @@ from statxplore import http_session, objects
 
 load_dotenv()
 
+# date and range of months is hardcoded in for now - these will be changed later to be configurable
+DATE = '202512'
+MONTH_RANGE = 12
+
 QUERY_DIR = paths.data_config / "stat_xplore_queries"
 
-QUERIES = {
-    "universal_credit_no_work_required": QUERY_DIR / "uc_no_work_req_2025.json",
-    "universal_credit_planning_for_work": QUERY_DIR / "uc_planning_work_2025.json",
-    "universal_credit_preparing_for_work": QUERY_DIR / "uc_prep_work_2025.json",
-    "universal_credit_searching_for_work": QUERY_DIR / "uc_search_work_2025.json",
+QUERY_CONDITIONS = {
+    "universal_credit_no_work_required": "BC",
+    "universal_credit_planning_for_work": "DF",
+    "universal_credit_preparing_for_work": "CE",
+    "universal_credit_searching_for_work": "AA",
 }
 
 
+def construct_queries(query_template: str, condition: str, date: str=DATE, month_range: int=MONTH_RANGE) -> str:
+    # ammend date
+    query_template['recodes']['str:field:UC_Monthly:F_UC_DATE:DATE_NAME']['map'] = [
+        [f"str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:{str(int(date) - month_distance)}"] for month_distance in range(month_range)]
+    # ammend uc condition
+    query_template['recodes']['str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME']['map'] = [
+        [f"str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:{condition}"]]
+    return query_template
+
 def get_queries() -> dict[str, str]:
-    return {name: query.read_text() for name, query in QUERIES.items()}
+    with open(QUERY_DIR / "uc_template.json", encoding="utf-8") as f:
+        query_template = json.load(f)
+    return {name: construct_queries(query_template, condition) for name, condition in QUERY_CONDITIONS.items()}
 
 
-def get_data(query: str, session, output_path: Path, force=False) -> dict:
+def get_data(query: dict, session, output_path: Path, force=False) -> dict:
     if output_path.exists() and not force:
         logger.debug("reading cached file", path=output_path)
         return json.loads(output_path.read_text(encoding="utf-8"))
 
     logger.info("querying statxplore...")
 
-    data = objects.Table.query_json(session, query)
+    data = objects.Table.query_json(session, json.dumps(query))
     output_path.write_text(data=json.dumps(data), encoding="utf-8")
     return data
 
