@@ -6,7 +6,6 @@ import geopandas as gpd
 import pandas as pd
 import polars as pl
 from geopandas import GeoDataFrame
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
@@ -23,19 +22,21 @@ def count_ammenities(
         ammenity for ammenity in ammenities
     }  # convert to set to use membership methods
 
-    lsoa_gdf = feature_frame[["lsoa_code", f"geom_{distance}"]]
-    lsoa_gdf.set_geometry(f"geom_{distance}", inplace=True)
-
-    joined_gdf = point_osm_data.sjoin(lsoa_gdf, how="inner", predicate="within")
-    joined_gdf["helper_column"] = joined_gdf["tags"].apply(
+    mask = point_osm_data["tags"].apply(
         lambda x: (
             (not x.keys().isdisjoint({"amenity"}))
             and (x.get("amenity", "") in _ammenities)
         )
     )
+    point_osm_data_filtered = point_osm_data[mask]
 
-    filtered_gdf = joined_gdf[joined_gdf["helper_column"]]
-    gdf_agg = filtered_gdf[["lsoa_code", "id"]].groupby(["lsoa_code"]).count()
+    lsoa_gdf = feature_frame[["lsoa_code", f"geom_{distance}"]]
+    lsoa_gdf.set_geometry(f"geom_{distance}", inplace=True)
+
+    joined_gdf = point_osm_data_filtered.sjoin(
+        lsoa_gdf, how="inner", predicate="within"
+    )
+    gdf_agg = joined_gdf[["lsoa_code", "id"]].groupby(["lsoa_code"]).count()
 
     return gdf_agg["id"]
 
@@ -296,7 +297,7 @@ def process() -> pl.LazyFrame:
         ammenity_groups=len(amenity_groups),
     )
 
-    logger.debug("assigning counts of ammenity groups")
+    logger.debug("extracting feature columns from osm data (could take a while)")
 
     count_ammenities_df = pd.DataFrame(
         {
@@ -324,9 +325,6 @@ def process() -> pl.LazyFrame:
         },
         index=lsoa_gdf.index,
     )
-    ic(count_ammenities_df.head())
-
-    logger.debug("finding nearest shop")
 
     nearest_shop = find_nearest_poi(
         feature_frame=lsoa_gdf.reset_index(),
@@ -336,7 +334,6 @@ def process() -> pl.LazyFrame:
     )
     lsoa_gdf["nearest_shop_0"] = nearest_shop.reindex(lsoa_gdf.index)
 
-    logger.debug("finding ratio of fastfood to dining")
     ratio_fastfood_dining = calculate_ratio_of_elements(
         feature_frame=lsoa_gdf.reset_index(),
         point_osm_data=osm_points_gdf,
@@ -350,7 +347,6 @@ def process() -> pl.LazyFrame:
         lsoa_gdf.index
     )
 
-    logger.debug("finding landuse share")
     landuse_shares = find_landuse_share(
         feature_frame=lsoa_gdf.reset_index(),
         polygon_osm_data=osm_polygons_gdf,
@@ -367,7 +363,6 @@ def process() -> pl.LazyFrame:
         index=lsoa_gdf.index,
     )
 
-    logger.debug("finding streetlit path %")
     lit_pct = find_streetlit_path_percent(
         feature_frame=lsoa_gdf.reset_index(),
         line_osm_data=osm_lines_gdf,
