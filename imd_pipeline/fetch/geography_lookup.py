@@ -11,7 +11,7 @@ from imd_pipeline.utils.http import create_session
 
 def fetch(force: bool = False):
 
-    output_path = paths.data_raw / "geography_lookup.parquet"
+    output_path = paths.data_raw / "lookup" / "geography_lookup.parquet"
     if output_path.exists() and not force:
         logger.debug("cache hit", path=output_path)
         return
