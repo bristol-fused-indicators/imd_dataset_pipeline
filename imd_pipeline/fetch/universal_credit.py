@@ -10,7 +10,7 @@ from statxplore import http_session, objects
 
 load_dotenv()
 
-# date and range of months is hardcoded in for now - these will be changed later to be configurable
+# Todo - date and range of months is hardcoded in for now - these will be changed later to be configurable
 DATE = '202512'
 MONTH_RANGE = 12
 
