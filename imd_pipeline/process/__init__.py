@@ -3,5 +3,6 @@ from imd_pipeline.process import (
     land_registry,
     police_uk,
     universal_credit,
-    geography_lookup
+    geography_lookup,
+    postcode_lookup
 )

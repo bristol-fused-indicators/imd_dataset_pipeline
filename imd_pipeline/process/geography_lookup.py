@@ -3,9 +3,9 @@ from loguru import logger
 from project_paths import paths
 
 def process() -> pl.LazyFrame:
-    logger.info("processing geography lookup data", source=str(paths.data_raw / "geography_lookup.parquet"))
+    logger.info("processing geography lookup data", source=str(paths.data_raw / "lookup" / "geography_lookup.parquet"))
     return (
-        pl.scan_parquet(paths.data_raw / "geography_lookup.parquet")
+        pl.scan_parquet(paths.data_raw / "lookup" / "geography_lookup.parquet")
         .select(
             [pl.col("Geo Point").alias("geo_point"),
              pl.col("Geo Shape").alias("geo_shape"),
