@@ -24,6 +24,7 @@ def main():
         window_months=config.window_months,
         snapshot_date=config.snapshot_date,
     )
+    
     # fetch and process lookup data
     fetch.geography_lookup.fetch()
     logger.info("lookup data fetch complete")
