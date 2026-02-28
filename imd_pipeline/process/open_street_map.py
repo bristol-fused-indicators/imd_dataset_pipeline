@@ -6,6 +6,7 @@ import geopandas as gpd
 import pandas as pd
 import polars as pl
 from geopandas import GeoDataFrame
+from icecream import ic
 from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
@@ -115,33 +116,39 @@ def find_landuse_share(
 ) -> pd.DataFrame:
     lsoa_gdf = feature_frame[["lsoa_code", f"geom_{distance}"]].copy()
     lsoa_gdf.set_geometry(f"geom_{distance}", inplace=True)
-    lsoa_gdf["lsoa_area"] = lsoa_gdf.geometry.area
+    lsoa_areas = lsoa_gdf.set_index("lsoa_code").geometry.area
+    lsoa_areas.rename("lsoa_area", inplace=True)
+    lsoa_areas = lsoa_areas.to_frame().reset_index()
 
     landuse_gdf = polygon_osm_data[
         polygon_osm_data["tags"].apply(lambda x: "landuse" in x.keys())
     ].copy()
     landuse_gdf["landuse_type"] = landuse_gdf["tags"].apply(lambda x: x.get("landuse"))
 
-    joined_gdf = landuse_gdf.sjoin(lsoa_gdf, how="inner", predicate="intersects")
-    joined_gdf["intersection_area"] = joined_gdf.apply(
-        lambda row: (
-            row.geometry.intersection(
-                lsoa_gdf.loc[
-                    lsoa_gdf["lsoa_code"] == row["lsoa_code"], f"geom_{distance}"
-                ].iloc[0]
-            ).area
-        ),
-        axis=1,
+    intersections_df = lsoa_gdf.overlay(right=landuse_gdf, how="intersection")
+    intersections_df["landuse_area"] = intersections_df.geometry.area
+
+    intersections_df = (
+        intersections_df[["lsoa_code", "landuse_type", "landuse_area"]]
+        .groupby(["lsoa_code", "landuse_type"])
+        .sum()
+    ).reset_index()
+
+    intersections_df = intersections_df.merge(
+        right=lsoa_areas, how="left", left_on="lsoa_code", right_on="lsoa_code"
     )
 
-    landuse_areas = joined_gdf.groupby(["lsoa_code", "landuse_type"])[
-        "intersection_area"
-    ].sum()
+    intersections_df["landuse_share"] = (
+        intersections_df["landuse_area"] / intersections_df["lsoa_area"]
+    )
 
-    lsoa_areas = lsoa_gdf.set_index("lsoa_code")["lsoa_area"]
-    landuse_shares = landuse_areas.unstack(fill_value=0).div(lsoa_areas, axis=0)
+    landuse_share_df = (
+        intersections_df[["lsoa_code", "landuse_type", "landuse_share"]]
+        .pivot(columns="landuse_type", index="lsoa_code", values="landuse_share")
+        .fillna(0)
+    )
 
-    return landuse_shares
+    return landuse_share_df
 
 
 def find_streetlit_path_percent(
@@ -380,6 +387,9 @@ def process() -> pl.LazyFrame:
         inplace=True,
     )
     logger.info("osm process complete")
+
+    ic(lsoa_gdf)
+
     return pl.from_pandas(lsoa_gdf).lazy()
 
 
