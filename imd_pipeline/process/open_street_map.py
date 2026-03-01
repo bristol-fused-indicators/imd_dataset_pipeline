@@ -79,7 +79,7 @@ def find_nearest_poi(
 
     agged_gdf = joined_gdf[["lsoa_code", "distance"]].groupby(["lsoa_code"]).min()
 
-    return agged_gdf["distance"]
+    return agged_gdf["distance"].rename(f"nearest_{poi}")
 
 
 def calculate_ratio_of_elements(
@@ -106,7 +106,7 @@ def calculate_ratio_of_elements(
 
     counts["ratio"] = counts["count_a"] / counts["count_b"].replace(0, float("nan"))
 
-    return counts["ratio"]
+    return counts["ratio"].rename(f"ratio_{element_groups[0]}_to_{element_groups[1]}")
 
 
 def find_landuse_share(
@@ -181,7 +181,7 @@ def find_streetlit_path_percent(
 
     lit_percent = (lit_length / total_length).fillna(0)
 
-    return lit_percent
+    return lit_percent.rename("streetlit_percentage")
 
 
 def format_osm_geodataframes(
@@ -339,7 +339,7 @@ def process() -> pl.LazyFrame:
         poi="shop",
         distance=0,
     )
-    lsoa_gdf["nearest_shop_0"] = nearest_shop.reindex(lsoa_gdf.index)
+    # lsoa_gdf["nearest_shop_0"] = nearest_shop.reindex(lsoa_gdf.index)
 
     ratio_fastfood_dining = calculate_ratio_of_elements(
         feature_frame=lsoa_gdf.reset_index(),
@@ -350,9 +350,9 @@ def process() -> pl.LazyFrame:
         ),
         distance=1000,
     )
-    lsoa_gdf["ratio_fastfood_dining_1000"] = ratio_fastfood_dining.reindex(
-        lsoa_gdf.index
-    )
+    # lsoa_gdf["ratio_fastfood_dining_1000"] = ratio_fastfood_dining.reindex(
+    #     lsoa_gdf.index
+    # )
 
     landuse_shares = find_landuse_share(
         feature_frame=lsoa_gdf.reset_index(),
@@ -375,9 +375,19 @@ def process() -> pl.LazyFrame:
         line_osm_data=osm_lines_gdf,
         distance=0,
     )
-    lsoa_gdf["lit_path_pct_0"] = lit_pct.reindex(lsoa_gdf.index).fillna(0)
+    # lsoa_gdf["lit_path_pct_0"] = lit_pct.reindex(lsoa_gdf.index).fillna(0)
 
-    lsoa_gdf = pd.concat([lsoa_gdf, count_ammenities_df, landuse_df], axis=1)
+    lsoa_gdf = pd.concat(
+        [
+            lsoa_gdf,
+            count_ammenities_df,
+            nearest_shop,
+            ratio_fastfood_dining,
+            landuse_df,
+            lit_pct,
+        ],
+        axis=1,
+    )
 
     # reset index to put lsoa_code back as a column
     lsoa_gdf = lsoa_gdf.reset_index()
