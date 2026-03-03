@@ -1,13 +1,11 @@
-from datetime import date
-
 import polars as pl
-from dateutil.relativedelta import relativedelta
 from project_paths import paths
 
 from imd_pipeline.utils.lsoas import (
     filter_bristol,
     map_postcode_to_lsoa_code,
 )
+from imd_pipeline.utils.timeframes import get_window_bounds
 
 COLUMNS = [
     "transaction_id",
@@ -27,12 +25,6 @@ COLUMNS = [
     "ppd_category",
     "record_status",
 ]
-
-
-def get_window_bounds(snapshot_date: str, window_months: int) -> tuple[date, date]:
-    end = date.fromisoformat(snapshot_date)
-    start = end - relativedelta(months=window_months)
-    return start, end
 
 
 def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:

@@ -5,7 +5,7 @@ from project_paths import paths
 from requests import Session
 
 from imd_pipeline.utils.http import cached_fetch, create_session
-from imd_pipeline.utils.timeframes import window_bounds
+from imd_pipeline.utils.timeframes import get_window_bounds
 
 BASE_URL = (
     "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
@@ -26,7 +26,9 @@ def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Pa
 
 
 def _required_years(snapshot_date: str, window_months: int) -> list[int]:
-    start, end = window_bounds(snapshot_date=snapshot_date, window_months=window_months)
+    start, end = get_window_bounds(
+        snapshot_date=snapshot_date, window_months=window_months
+    )
     return list(range(start.year, end.year + 1))
 
 

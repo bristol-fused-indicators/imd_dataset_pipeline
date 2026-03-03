@@ -3,7 +3,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 
-def window_bounds(snapshot_date: str, window_months: int) -> tuple[date, date]:
+def get_window_bounds(snapshot_date: str, window_months: int) -> tuple[date, date]:
     """Calculate the start and end dates for a temporal window."""
 
     end = date.fromisoformat(snapshot_date)
