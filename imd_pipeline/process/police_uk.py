@@ -6,7 +6,8 @@ import polars.selectors as slt
 from loguru import logger
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
+from imd_pipeline.utils.lsoas import filter_bristol
+from imd_pipeline.utils.timeframes import months_in_window
 
 CRIME_CATEGORIES = [
     "robbery",
@@ -43,20 +44,10 @@ CRIME_OUTCOMES = [
 ]
 
 
-def _month(month_decriment: int, startdate: date) -> date:
-    new_month = startdate.month - 1 - month_decriment
-    year = startdate.year + new_month // 12
-    month = new_month % 12 + 1
-    return date(year, month, 1)
-
-
 @cache
 def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
-    start = date.fromisoformat(snapshot_date)
-    month = partial(_month, startdate=start)
     return frozenset(
-        month(decrement).strftime("%Y-%m") + ".parquet"
-        for decrement in range(window_months)
+        f"{month}.parquet" for month in months_in_window(snapshot_date, window_months)
     )
 
 
