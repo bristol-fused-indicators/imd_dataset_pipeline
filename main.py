@@ -29,10 +29,12 @@ def main():
     fetch.geography_lookup.fetch()
     fetch.postcode_lookup.fetch()
     fetch.lsoa_2011_2021_lookup.fetch()
+    fetch.population_lookup.fetch()
     logger.info("lookup data fetch complete")
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
+    process.population_lookup.process()
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
