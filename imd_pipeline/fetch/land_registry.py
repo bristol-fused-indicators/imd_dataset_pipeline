@@ -1,12 +1,11 @@
-from datetime import date
 from pathlib import Path
 
-from dateutil.relativedelta import relativedelta
 from loguru import logger
 from project_paths import paths
 from requests import Session
 
 from imd_pipeline.utils.http import cached_fetch, create_session
+from imd_pipeline.utils.timeframes import window_bounds
 
 BASE_URL = (
     "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
@@ -15,13 +14,6 @@ MONTHLY_UPDATE_URL = f"{BASE_URL}pp-monthly-update-new-version.csv"
 YEARLY_URL_TEMPLATE = f"{BASE_URL}pp-{{year}}.csv"
 
 RAW_DIR = paths.data_raw / "land_registry"
-
-
-# def fetch_monthly_update(session, force: bool = False) -> Path:
-#     date_key = datetime.now().strftime("%Y-%m")
-#     dest = RAW_DIR / f"pp-monthly-update-{date_key}.csv"
-#     logger.info("fetching monthly land registry update", date_key=date_key)
-#     return cached_fetch(MONTHLY_UPDATE_URL, dest, session, force=force)
 
 
 def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Path:
@@ -34,8 +26,7 @@ def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Pa
 
 
 def _required_years(snapshot_date: str, window_months: int) -> list[int]:
-    end = date.fromisoformat(snapshot_date)
-    start = end - relativedelta(months=window_months)
+    start, end = window_bounds(snapshot_date=snapshot_date, window_months=window_months)
     return list(range(start.year, end.year + 1))
 
 
