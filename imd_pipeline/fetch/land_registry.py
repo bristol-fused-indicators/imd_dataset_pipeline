@@ -2,7 +2,6 @@ from datetime import date
 from pathlib import Path
 
 from dateutil.relativedelta import relativedelta
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 from requests import Session
@@ -44,7 +43,6 @@ def fetch(snapshot_date: str, window_months: int, force_refresh: bool = False):
     session = create_session()
 
     required_years = _required_years(snapshot_date, window_months)
-    ic(required_years)
     for year in required_years:
         fetch_yearly(session=session, year=year)
 

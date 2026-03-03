@@ -11,7 +11,7 @@ from statxplore import http_session, objects
 load_dotenv()
 
 # Todo - date and range of months is hardcoded in for now - these will be changed later to be configurable
-DATE = '202512'
+DATE = "202512"
 MONTH_RANGE = 12
 
 QUERY_DIR = paths.data_config / "stat_xplore_queries"
@@ -24,19 +24,37 @@ QUERY_CONDITIONS = {
 }
 
 
-def construct_queries(query_template: str, condition: str, date: str=DATE, month_range: int=MONTH_RANGE) -> str:
+def construct_queries(
+    query_template: str,
+    condition: str,
+    date: str = DATE,
+    month_range: int = MONTH_RANGE,
+) -> str:
     # ammend date
-    query_template['recodes']['str:field:UC_Monthly:F_UC_DATE:DATE_NAME']['map'] = [
-        [f"str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:{str(int(date) - month_distance)}"] for month_distance in range(month_range)]
+    query_template["recodes"]["str:field:UC_Monthly:F_UC_DATE:DATE_NAME"]["map"] = [
+        [
+            f"str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:{str(int(date) - month_distance)}"
+        ]
+        for month_distance in range(month_range)
+    ]
     # ammend uc condition
-    query_template['recodes']['str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME']['map'] = [
-        [f"str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:{condition}"]]
+    query_template["recodes"][
+        "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
+    ]["map"] = [
+        [
+            f"str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:{condition}"
+        ]
+    ]
     return query_template
+
 
 def get_queries() -> dict[str, str]:
     with open(QUERY_DIR / "uc_template.json", encoding="utf-8") as f:
         query_template = json.load(f)
-    return {name: construct_queries(query_template, condition) for name, condition in QUERY_CONDITIONS.items()}
+    return {
+        name: construct_queries(query_template, condition)
+        for name, condition in QUERY_CONDITIONS.items()
+    }
 
 
 def get_data(query: dict, session, output_path: Path, force=False) -> dict:
@@ -128,7 +146,7 @@ def fetch(force: bool = False):
 
 
 def main():
-    fetch(force=False)
+    fetch(force=True)
 
 
 if __name__ == "__main__":

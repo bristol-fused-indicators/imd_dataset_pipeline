@@ -2,7 +2,6 @@ from datetime import date
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
-from icecream import ic
 from project_paths import paths
 
 from imd_pipeline.utils.lsoas import (
@@ -122,9 +121,7 @@ def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
     window_bounds = get_window_bounds(snapshot_date, window_months)
-    ic(window_bounds)
     years = [_date.year for _date in window_bounds]
-    ic(years)
 
     dir = paths.data_raw / "land_registry"
 
@@ -133,8 +130,6 @@ def process(
         for file in dir.glob("*.csv")
         if str(file.stem).endswith(tuple(str(year) for year in years))
     ]
-
-    ic(files)
 
     dataframe = (
         pl.concat(
@@ -161,8 +156,6 @@ def process(
         )
         .pipe(aggregate_stats)
     )
-
-    ic(dataframe.collect().head(), dataframe.collect().height)
 
     if persist_intermediate_file:
         dataframe.sink_parquet(paths.data_processed / "land_registry.parquet")
