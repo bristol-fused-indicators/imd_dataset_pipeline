@@ -34,6 +34,10 @@ def main():
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    population_data = process.population_lookup.process()
+>>>>>>> 5a7f936 (add population data to combined dataset)
 =======
     population_data = process.population_lookup.process()
 >>>>>>> 5a7f936 (add population data to combined dataset)
@@ -56,6 +60,7 @@ def main():
     logger.info("process stage complete")
 
     # combine processed data
+
     combined = combine.join(
         crime_data, uc_data, connect_data, osm_data, price_paid_data, population_data
     )
