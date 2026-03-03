@@ -28,6 +28,7 @@ COLUMNS = [
 
 
 def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes mean transaction price per LSOA as lsoa_average_price."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
@@ -37,6 +38,7 @@ def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes max transaction price per LSOA as lsoa_max_price."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
@@ -46,6 +48,7 @@ def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes mean price per property type per LSOA, pivoting to columns T/F/S/D/O_mean_price."""
     return (
         lf.select("lsoa_code", "property_type", "price")
         .pivot(
@@ -68,10 +71,12 @@ def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def transactions_in_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - counts total transactions per LSOA as total_transactions."""
     return lf.group_by("lsoa_code").len(name="total_transactions")
 
 
 def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - counts transactions per property type per LSOA, pivoting to columns T/F/S/D/O_count_transactions."""
     return (
         lf.select("lsoa_code", "property_type", pl.lit("dummy"))
         .pivot(
@@ -94,6 +99,7 @@ def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - orchestrates all LSOA aggregations by joining average_price_by_lsoa, max_price_by_lsoa, average_price_by_property_type, transactions_in_lsoa, and transactions_per_property_type onto an lsoa_code spine."""
     spine = lf.select("lsoa_code").unique()
 
     all_frames = [
@@ -112,6 +118,16 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
+    """Loads Land Registry CSVs for the time window, maps postcodes to LSOA codes, filters to Bristol, and aggregates stats.
+
+    Args:
+        window_months: Number of months in the time window.
+        snapshot_date: End date of the window in YYYY-MM-DD format.
+        persist_intermediate_file: If True, sinks the result to a parquet file before returning.
+
+    Returns:
+        LazyFrame of aggregated Land Registry stats per Bristol LSOA.
+    """
     window_bounds = get_window_bounds(snapshot_date, window_months)
     years = [_date.year for _date in window_bounds]
 
