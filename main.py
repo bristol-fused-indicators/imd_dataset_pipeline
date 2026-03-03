@@ -33,6 +33,10 @@ def main():
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
+<<<<<<< HEAD
+=======
+    population_data = process.population_lookup.process()
+>>>>>>> 5a7f936 (add population data to combined dataset)
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
@@ -53,7 +57,7 @@ def main():
 
     # combine processed data
     combined = combine.join(
-        crime_data, uc_data, connect_data, price_paid_data, osm_data
+        crime_data, uc_data, connect_data, osm_data, price_paid_data, population_data
     )
     logger.info("pipeline complete")
 
