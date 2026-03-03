@@ -24,6 +24,7 @@ QUERY_CONDITIONS = {
 }
 
 
+# ! review this - mutating the template on each call. could instead take in the template and emit an formatted query
 def construct_queries(
     query_template: str,
     condition: str,

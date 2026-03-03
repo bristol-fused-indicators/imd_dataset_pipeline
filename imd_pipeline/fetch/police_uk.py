@@ -89,7 +89,7 @@ def simplify_and_format(polygon: Polygon) -> str:
     while len(formatted) > 300:
         poly = poly.simplify(tolerance, preserve_topology=True)
         formatted = format_coords(poly)  # type: ignore
-        tolerance *= 1.25
+        tolerance *= 1.25  # this is a geometric progression - the tolerence will grow slowly so that we can avoid oversimplifying and loosing information. 1.25 was chosen arbitraily after a bit of trial and error, and has not been tuned
 
     return formatted
 

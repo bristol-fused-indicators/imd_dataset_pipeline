@@ -301,7 +301,9 @@ def process() -> pl.LazyFrame:
         lsoa_gdf[["lsoa_code", "geometry"]]
         .set_geometry("geometry")
         .set_crs(epsg=4326)  # we set the source crs - coords start in lat/long degrees
-        .to_crs(epsg=27700)  # Then convert to metric coords
+        .to_crs(
+            epsg=27700
+        )  # Then convert to metric coords. This is so that the distance based operations for buffer zones can be performed
     )
     lsoa_gdf = lsoa_gdf.assign(
         **{

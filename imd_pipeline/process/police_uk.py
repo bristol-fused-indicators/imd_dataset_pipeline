@@ -47,6 +47,7 @@ CRIME_OUTCOMES = [
 @cache
 def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
     """Cached helper for file_in_window - precomputes the set of valid month filenames for a time window."""
+    # want to use a set for quick membership check, but cache requires a hashable object, so a frozenset is used
     return frozenset(
         f"{month}.parquet" for month in months_in_window(snapshot_date, window_months)
     )

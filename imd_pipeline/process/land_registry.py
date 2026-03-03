@@ -100,8 +100,13 @@ def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - orchestrates all LSOA aggregations by joining average_price_by_lsoa, max_price_by_lsoa, average_price_by_property_type, transactions_in_lsoa, and transactions_per_property_type onto an lsoa_code spine."""
+    # the "spine" will define the primary key of the data and we will left join all the stats to it
+    # this ensures we don't fan out and we preserve lsoas even if they are missing some aggregations
     spine = lf.select("lsoa_code").unique()
 
+    # each func in this list extracts different features from the same raw data
+    # these are broken up for neatness, and this code can be extended by writing a new agg function
+    # then adding it to this list
     all_frames = [
         average_price_by_lsoa(lf),
         max_price_by_lsoa(lf),
