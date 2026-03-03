@@ -46,16 +46,19 @@ CRIME_OUTCOMES = [
 
 @cache
 def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
+    """Cached helper for file_in_window - precomputes the set of valid month filenames for a time window."""
     return frozenset(
         f"{month}.parquet" for month in months_in_window(snapshot_date, window_months)
     )
 
 
 def file_in_window(filename, window_months, snapshot_date) -> bool:
+    """Checks if a parquet filename falls within the time window, used in process to select which monthly files to load."""
     return filename in _valid_names(window_months, snapshot_date)
 
 
 def aggregate_by_category(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - pivots crime data by category, producing one count column per crime category per LSOA."""
     return (
         lf.select(pl.col("lsoa_code"), pl.col("category"))
         .with_columns(pl.lit(1).alias("_dummy_count_"))
@@ -71,6 +74,7 @@ def aggregate_by_category(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_by_outcome(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - pivots crime data by outcome, producing one count column per outcome type per LSOA."""
     return (
         lf.select(pl.col("lsoa_code"), pl.col("outcome_status"))
         .with_columns(pl.lit(1).alias("_dummy_count_"))
@@ -86,12 +90,14 @@ def aggregate_by_outcome(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - orchestrates aggregate_by_category and aggregate_by_outcome, joining both onto lsoa_code."""
     cats = aggregate_by_category(lf)
     outcomes = aggregate_by_outcome(lf)
     return cats.join(outcomes, on="lsoa_code")
 
 
 def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - adds total_crimes (sum of category counts) and resolution_rate (outcomes / total_crimes)."""
     return lf.with_columns(
         pl.sum_horizontal(slt.by_name(CRIME_CATEGORIES)).alias("total_crimes")
     ).with_columns(
@@ -104,6 +110,17 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
+    """Loads monthly police parquet files within the time window, filters to Bristol, aggregates by category and outcome, and derives summary stats.
+
+    Args:
+        window_months: Number of months in the time window.
+        snapshot_date: End date of the window in YYYY-MM-DD format.
+        persist_intermediate_file: If True, sinks the result to a parquet file before returning.
+
+    Returns:
+        LazyFrame of aggregated crime stats per Bristol LSOA.
+    """
+
     logger.info(
         "processing police data",
         window_months=window_months,
