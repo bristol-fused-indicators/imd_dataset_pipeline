@@ -34,7 +34,7 @@ def main():
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
-    process.population_lookup.process()
+    population_data = process.population_lookup.process()
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
@@ -52,7 +52,7 @@ def main():
     logger.info("process stage complete")
 
     # combine processed data
-    combined = combine.join(crime_data, uc_data, connect_data, price_paid_data)
+    combined = combine.join(crime_data, uc_data, connect_data, price_paid_data, population_data)
     logger.info("pipeline complete")
 
 
