@@ -36,9 +36,9 @@ def count_ammenities(
     }  # convert to set to use membership methods
 
     mask = point_osm_data["tags"].apply(
-        lambda x: (
-            (not x.keys().isdisjoint({"amenity"}))
-            and (x.get("amenity", "") in _ammenities)
+        lambda x: any(
+            x.get(key) in _ammenities
+            for key in ("amenity", "shop", "landuse", "highway")
         )
     )
     point_osm_data_filtered = point_osm_data[mask]
