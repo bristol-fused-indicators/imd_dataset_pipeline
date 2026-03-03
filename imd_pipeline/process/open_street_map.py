@@ -10,6 +10,19 @@ from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
 
+BUFFER_DISTANCES = [
+    0,
+    250,
+    500,
+    750,
+    1000,
+    1250,
+    1500,
+    2000,
+    2500,
+    5000,
+]
+
 
 def count_ammenities(
     feature_frame: GeoDataFrame,
@@ -293,7 +306,7 @@ def process() -> pl.LazyFrame:
     lsoa_gdf = lsoa_gdf.assign(
         **{
             f"geom_{distance}": lsoa_gdf.geometry.buffer(distance)
-            for distance in [0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 5000]
+            for distance in BUFFER_DISTANCES
         }
     ).set_index(  # create geometries of lsoas extended by different distances in meters
         "lsoa_code"
@@ -322,18 +335,7 @@ def process() -> pl.LazyFrame:
             .reindex(lsoa_gdf.index)
             .fillna(0)
             for group_name, group in amenity_groups.items()
-            for buffer_distance in [
-                0,
-                250,
-                500,
-                750,
-                1000,
-                1250,
-                1500,
-                2000,
-                2500,
-                5000,
-            ]
+            for buffer_distance in BUFFER_DISTANCES
         },
         index=lsoa_gdf.index,
     )
