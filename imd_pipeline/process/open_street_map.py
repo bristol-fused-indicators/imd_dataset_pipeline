@@ -6,7 +6,6 @@ import geopandas as gpd
 import pandas as pd
 import polars as pl
 from geopandas import GeoDataFrame
-from icecream import ic
 from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
@@ -87,6 +86,7 @@ def calculate_ratio_of_elements(
     point_osm_data: GeoDataFrame,
     element_groups: tuple[Iterable, Iterable],
     distance: int,
+    name: str | None = None,
 ) -> pd.Series:
     _matches_any_group_a = partial(matches_any_poi, pois=set(element_groups[0]))
     _matches_any_group_b = partial(matches_any_poi, pois=set(element_groups[1]))
@@ -106,7 +106,12 @@ def calculate_ratio_of_elements(
 
     counts["ratio"] = counts["count_a"] / counts["count_b"].replace(0, float("nan"))
 
-    return counts["ratio"].rename(f"ratio_{element_groups[0]}_to_{element_groups[1]}")
+    if name:
+        return counts["ratio"].rename(name)
+    else:
+        return counts["ratio"].rename(
+            f"ratio_{'-'.join(element_groups[0])}_to_{'-'.join(element_groups[1])}_{distance}"
+        )
 
 
 def find_landuse_share(
@@ -349,6 +354,7 @@ def process() -> pl.LazyFrame:
             amenity_groups.get("food_dining", []),
         ),
         distance=1000,
+        name="ratio_fastfood_to_dining_1000",
     )
     # lsoa_gdf["ratio_fastfood_dining_1000"] = ratio_fastfood_dining.reindex(
     #     lsoa_gdf.index
@@ -397,8 +403,6 @@ def process() -> pl.LazyFrame:
         inplace=True,
     )
     logger.info("osm process complete")
-
-    ic(lsoa_gdf)
 
     return pl.from_pandas(lsoa_gdf).lazy()
 
