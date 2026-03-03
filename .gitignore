@@ -19,5 +19,6 @@ data/processed/*.parquet
 data/output/*.parquet
 data/output/*.csv
 data/raw/land_registry/*.csv
+data/raw/osm/*.json
 
 .vscode/*

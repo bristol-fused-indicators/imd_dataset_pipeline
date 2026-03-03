@@ -14,7 +14,7 @@ def create_session(
     backoff: float = 2,
     status_forcelist: list[int] | None = None,
 ) -> requests.Session:
-    status_forcelist = status_forcelist or [429, 500, 503]
+    status_forcelist = status_forcelist or [429, 500, 503, 504]
     retry = Retry(
         total=retries,
         backoff_factor=backoff,
