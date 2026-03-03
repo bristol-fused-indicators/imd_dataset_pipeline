@@ -344,7 +344,6 @@ def process() -> pl.LazyFrame:
         poi="shop",
         distance=0,
     )
-    # lsoa_gdf["nearest_shop_0"] = nearest_shop.reindex(lsoa_gdf.index)
 
     ratio_fastfood_dining = calculate_ratio_of_elements(
         feature_frame=lsoa_gdf.reset_index(),
@@ -356,9 +355,6 @@ def process() -> pl.LazyFrame:
         distance=1000,
         name="ratio_fastfood_to_dining_1000",
     )
-    # lsoa_gdf["ratio_fastfood_dining_1000"] = ratio_fastfood_dining.reindex(
-    #     lsoa_gdf.index
-    # )
 
     landuse_shares = find_landuse_share(
         feature_frame=lsoa_gdf.reset_index(),
@@ -381,7 +377,6 @@ def process() -> pl.LazyFrame:
         line_osm_data=osm_lines_gdf,
         distance=0,
     )
-    # lsoa_gdf["lit_path_pct_0"] = lit_pct.reindex(lsoa_gdf.index).fillna(0)
 
     lsoa_gdf = pd.concat(
         [
