@@ -25,6 +25,16 @@ def main():
         snapshot_date=config.snapshot_date,
     )
 
+    # fetch and process lookup data
+    fetch.geography_lookup.fetch()
+    fetch.postcode_lookup.fetch()
+    fetch.lsoa_2011_2021_lookup.fetch()
+    logger.info("lookup data fetch complete")
+    process.geography_lookup.process()
+    process.postcode_lookup.process()
+    process.lsoa_2011_2021_lookup.process()
+    logger.info("lookup data process complete")
+
     # fetch the raw data from source
     fetch.police_uk.fetch()
     fetch.universal_credit.fetch()
