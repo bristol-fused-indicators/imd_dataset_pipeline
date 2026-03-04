@@ -1,14 +1,11 @@
-from datetime import date
-
 import polars as pl
-from dateutil.relativedelta import relativedelta
-from icecream import ic
 from project_paths import paths
 
 from imd_pipeline.utils.lsoas import (
     filter_bristol,
     map_postcode_to_lsoa_code,
 )
+from imd_pipeline.utils.timeframes import get_window_bounds
 
 COLUMNS = [
     "transaction_id",
@@ -30,13 +27,8 @@ COLUMNS = [
 ]
 
 
-def get_window_bounds(snapshot_date: str, window_months: int) -> tuple[date, date]:
-    end = date.fromisoformat(snapshot_date)
-    start = end - relativedelta(months=window_months)
-    return start, end
-
-
 def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes mean transaction price per LSOA as lsoa_average_price."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
@@ -46,6 +38,7 @@ def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes max transaction price per LSOA as lsoa_max_price."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
@@ -55,6 +48,7 @@ def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes mean price per property type per LSOA, pivoting to columns T/F/S/D/O_mean_price."""
     return (
         lf.select("lsoa_code", "property_type", "price")
         .pivot(
@@ -77,10 +71,12 @@ def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def transactions_in_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - counts total transactions per LSOA as total_transactions."""
     return lf.group_by("lsoa_code").len(name="total_transactions")
 
 
 def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - counts transactions per property type per LSOA, pivoting to columns T/F/S/D/O_count_transactions."""
     return (
         lf.select("lsoa_code", "property_type", pl.lit("dummy"))
         .pivot(
@@ -103,8 +99,14 @@ def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - orchestrates all LSOA aggregations by joining average_price_by_lsoa, max_price_by_lsoa, average_price_by_property_type, transactions_in_lsoa, and transactions_per_property_type onto an lsoa_code spine."""
+    # the "spine" will define the primary key of the data and we will left join all the stats to it
+    # this ensures we don't fan out and we preserve lsoas even if they are missing some aggregations
     spine = lf.select("lsoa_code").unique()
 
+    # each func in this list extracts different features from the same raw data
+    # these are broken up for neatness, and this code can be extended by writing a new agg function
+    # then adding it to this list
     all_frames = [
         average_price_by_lsoa(lf),
         max_price_by_lsoa(lf),
@@ -121,10 +123,18 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(
     window_months, snapshot_date, persist_intermediate_file: bool = False
 ) -> pl.LazyFrame:
+    """Loads Land Registry CSVs for the time window, maps postcodes to LSOA codes, filters to Bristol, and aggregates stats.
+
+    Args:
+        window_months: Number of months in the time window.
+        snapshot_date: End date of the window in YYYY-MM-DD format.
+        persist_intermediate_file: If True, sinks the result to a parquet file before returning.
+
+    Returns:
+        LazyFrame of aggregated Land Registry stats per Bristol LSOA.
+    """
     window_bounds = get_window_bounds(snapshot_date, window_months)
-    ic(window_bounds)
     years = [_date.year for _date in window_bounds]
-    ic(years)
 
     dir = paths.data_raw / "land_registry"
 
@@ -133,8 +143,6 @@ def process(
         for file in dir.glob("*.csv")
         if str(file.stem).endswith(tuple(str(year) for year in years))
     ]
-
-    ic(files)
 
     dataframe = (
         pl.concat(
@@ -161,8 +169,6 @@ def process(
         )
         .pipe(aggregate_stats)
     )
-
-    ic(dataframe.collect().head(), dataframe.collect().height)
 
     if persist_intermediate_file:
         dataframe.sink_parquet(paths.data_processed / "land_registry.parquet")

@@ -18,6 +18,15 @@ MAX_MONTHS = 36
 
 
 def generate_months(start_year: int, end_year: int) -> list[str]:
+    """Returns a list of YYYY-MM strings for all months in a year range.
+
+    Args:
+        start_year: First year (inclusive).
+        end_year: Last year (exclusive).
+
+    Returns:
+        List of month strings in chronological order.
+    """
     return [
         f"{year}-{month:02d}"
         for year, month in product(range(start_year, end_year), range(1, 13))
@@ -25,16 +34,50 @@ def generate_months(start_year: int, end_year: int) -> list[str]:
 
 
 def extract_largest_polygon(geom) -> Polygon:
+    """Returns the largest polygon from a geometry, or the input if already a Polygon.
+
+    The Police UK API only accepts a single polygon per request, so for LSOAs
+    represented as MultiPolygons, the largest part is used as the representative shape.
+    If there is only one polygon for the LSOA, then it is returned directly.
+
+    Args:
+        geom: A Shapely Polygon or MultiPolygon.
+
+    Returns:
+        The largest Polygon by area.
+    """
+
     if isinstance(geom, Polygon):
         return geom
     return max(geom.geoms, key=lambda p: p.area)
 
 
 def format_coords(polygon: Polygon) -> str:
+    """Formats polygon exterior coordinates as a colon separated lat,lon string for the Police UK API.
+
+    Args:
+        polygon: A Shapely Polygon.
+
+    Returns:
+        Coordinate string in the format "lat,lon:lat,lon:...".
+    """
     return ":".join(f"{lat},{lon}" for lon, lat in polygon.exterior.coords)
 
 
 def simplify_and_format(polygon: Polygon) -> str:
+    """Simplifies a polygon and formats it for the Police UK API's poly parameter.
+
+    LSOA boundaries can be highly detailed with loads of points,
+    producing coordinate strings that exceed the API's 300 character limit.
+    This function rounds and deduplicates coordinates (reduces precision),
+    then iteratively increases simplification tolerance until the string fits (reduces resolution).
+
+    Args:
+        polygon: A Shapely Polygon.
+
+    Returns:
+        Coordinate string suitable for the Police UK API poly parameter.
+    """
     coords = polygon.exterior.coords
     rounded = [(round(lat, 5), round(lon, 5)) for lon, lat in coords]
     deduped = list(dict.fromkeys(rounded))
@@ -46,12 +89,24 @@ def simplify_and_format(polygon: Polygon) -> str:
     while len(formatted) > 300:
         poly = poly.simplify(tolerance, preserve_topology=True)
         formatted = format_coords(poly)  # type: ignore
-        tolerance *= 1.25
+        tolerance *= 1.25  # this is a geometric progression - the tolerence will grow slowly so that we can avoid oversimplifying and loosing information. 1.25 was chosen arbitraily after a bit of trial and error, and has not been tuned
 
     return formatted
 
 
 def load_lsoa_polygons(lookup_path: Path) -> dict[str, str]:
+    """Loads LSOA geometries from the geography lookup and formats them for the Police UK API.
+
+    For each LSOA, calls `extract_largest_polygon` to get a single useable shape,
+    then calls `simplify_and_format` to produce a coordinate string within the API's 300 character limit
+
+    Args:
+        lookup_path: Path to the geography lookup CSV.
+
+    Returns:
+        Dict mapping lsoa_code to a formatted coordinate string.
+    """
+
     df = pl.read_csv(lookup_path, columns=["lsoa_code", "geo_shape"])
     result = {}
     for row in df.iter_rows(named=True):
@@ -83,6 +138,21 @@ def fetch_month(
     output_dir: Path,
     force: bool,
 ) -> Path:
+    """Fetches crime data for a single month across all LSOA polygons and saves to parquet.
+
+    Skips the download if the file already exists. Calls request_crimes for each LSOA.
+
+    Args:
+        month: Month string in YYYY-MM format.
+        lsoa_polys: Dict mapping lsoa_code to a formatted coordinate string.
+        session: requests Session to use.
+        output_dir: Directory to save the parquet file.
+        force: If True, refetch even if the file exists.
+
+    Returns:
+        Path to the saved parquet file.
+    """
+
     month_path = output_dir / f"{month}.parquet"
 
     if month_path.exists() and not force:
@@ -130,6 +200,23 @@ def fetch(
     start_year: int | None = None,
     end_year: int | None = None,
 ) -> Path:
+    """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
+
+    Reads start_year and end_year from config if not provided. Validates that the range
+    does not exceed the API's 36-month limit. Calls load_lsoa_polygons and fetch_month
+    for each month, then writes a consolidated all_crimes.parquet.
+
+    Args:
+        force: If True, refetch all months even if files exist.
+        start_year: First year to fetch (inclusive). Overrides config if provided.
+        end_year: Last year to fetch (exclusive). Overrides config if provided.
+
+    Returns:
+        Path to the consolidated parquet file.
+
+    Raises:
+        ValueError: If the year range exceeds 36 months or is not set.
+    """
 
     pyproject_path = Path(paths._path_to_toml)
     with open(pyproject_path, "rb") as f:

@@ -7,6 +7,17 @@ from imd_pipeline.utils.http import cached_fetch_json, create_session
 
 
 def fetch(force_refresh: bool = False) -> Path:
+    """Fetches Bristol OSM data from the Overpass API using cached_fetch_json,
+    which skips the download if the file already exists.
+
+    Queries amenities, shops, landuse, and highways within the Bristol area.
+
+    Args:
+        force_refresh: If True, re-fetch even if the file exists.
+
+    Returns:
+        Path to the saved JSON response.
+    """
 
     logger.info(
         "fetching open street map data from overpass api", force_refresh=force_refresh

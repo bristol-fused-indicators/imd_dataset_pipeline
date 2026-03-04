@@ -7,6 +7,16 @@ from loguru import logger
 def filter_bristol(
     lf: pl.LazyFrame, code_col: str, geography_path: Path
 ) -> pl.LazyFrame:
+    """Filters a Polars LazyFrame to Bristol LSOAs only.
+
+    Args:
+        lf: Input LazyFrame.
+        code_col: Column containing LSOA codes to filter on.
+        geography_path: Path to the geography lookup CSV.
+
+    Returns:
+        Filtered LazyFrame with the LSOA code column renamed to lsoa_code.
+    """
     bristol_codes = pl.scan_csv(geography_path).select("lsoa_code").unique()
 
     if code_col == "lsoa_code":
@@ -26,6 +36,17 @@ def filter_bristol(
 def convert_2011_to_2021(
     lf: pl.LazyFrame, col: str, lookup_path: Path, by: str = "code"
 ) -> pl.LazyFrame:
+    """Converts LSOA codes or names from the 2011 to 2021 classification.
+
+    Args:
+        lf: Input LazyFrame.
+        col: Column containing 2011 LSOA codes or names to convert.
+        lookup_path: Path to the 2011-to-2021 lookup CSV.
+        by: Whether to match on "code" or "name".
+
+    Returns:
+        LazyFrame with col updated to 2021 values where a mapping exists.
+    """
     old_col = f"lsoa_{by}_11"
     new_col = f"lsoa_{by}_21"
 
@@ -44,6 +65,16 @@ def convert_2011_to_2021(
 def map_lsoa_names_to_codes(
     lf: pl.LazyFrame, name_col: str, lookup_path: Path
 ) -> pl.LazyFrame:
+    """Replaces a column of 2021 LSOA names with their corresponding LSOA codes.
+
+    Args:
+        lf: Input LazyFrame.
+        name_col: Column containing LSOA names.
+        lookup_path: Path to the lookup CSV.
+
+    Returns:
+        LazyFrame with name_col replaced by lsoa_code.
+    """
     mapping = pl.scan_csv(lookup_path).select("lsoa_name_21", "lsoa_code_21").unique()
 
     result = (
@@ -59,7 +90,16 @@ def map_lsoa_names_to_codes(
 def map_postcode_to_lsoa_code(
     lf: pl.LazyFrame, postcode_col: str, lookup_path: Path
 ) -> pl.LazyFrame:
+    """Replaces a postcode column with the corresponding LSOA code.
 
+    Args:
+        lf: Input LazyFrame.
+        postcode_col: Column containing postcodes.
+        lookup_path: Path to the postcode lookup CSV.
+
+    Returns:
+        LazyFrame with postcode_col dropped and lsoa_code added.
+    """
     logger.debug("mapping postcode to lsoa", on_col=postcode_col)
     mapping = pl.scan_csv(lookup_path).select("postcode", "lsoa_code")
 
