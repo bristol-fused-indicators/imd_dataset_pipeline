@@ -102,7 +102,7 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # access the data
-    # todo rewrite this
+    # todo rewrite this - [val[0] is fragile
     key = next(iter(dataset["cubes"]))
     data_body = dataset["cubes"][key]["values"]
     data_body = [
@@ -110,13 +110,13 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # construct dataframe
-    dataset = (
+    df = (
         pl.DataFrame(data_body, schema=months, orient="row")
         .with_columns([pl.Series("lsoa_name", lsoas)])
         .unpivot(index="lsoa_name", variable_name="month")
     )
 
-    return dataset
+    return df
 
 
 def fetch(
