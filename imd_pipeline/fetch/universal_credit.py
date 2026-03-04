@@ -23,6 +23,7 @@ QUERY_CONDITIONS = {
     "universal_credit_preparing_for_work": "CE",
     "universal_credit_searching_for_work": "AA",
 }
+
 DATE_RECODE_KEY = "str:field:UC_Monthly:F_UC_DATE:DATE_NAME"
 QUERY_DATE_STEM = "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE"
 
@@ -71,8 +72,8 @@ def get_queries(
     }
 
 
-def get_data(query: dict, session, output_path: Path, force=False) -> dict:
-    if output_path.exists() and not force:
+def get_data(query: dict, session, output_path: Path, force_refresh=False) -> dict:
+    if output_path.exists() and not force_refresh:
         logger.debug("reading cached file", path=output_path)
         return json.loads(output_path.read_text(encoding="utf-8"))
 
@@ -102,7 +103,7 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # access the data
-    # todo rewrite this - [val[0] is fragile
+    # todo rewrite this - [val[0] is fragile, plus nested list comp
     key = next(iter(dataset["cubes"]))
     data_body = dataset["cubes"][key]["values"]
     data_body = [
@@ -135,7 +136,7 @@ def fetch(
             query=query,
             session=session,
             output_path=paths.data_raw / f"{name}.json",
-            force=force_refresh,
+            force_refresh=force_refresh,
         )
         for name, query in queries.items()
     }
