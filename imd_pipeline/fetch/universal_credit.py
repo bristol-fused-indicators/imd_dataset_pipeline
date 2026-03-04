@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 from dotenv import load_dotenv
@@ -8,11 +9,11 @@ from loguru import logger
 from project_paths import paths
 from statxplore import http_session, objects
 
+from imd_pipeline.utils.timeframes import months_in_window
+
 load_dotenv()
 
-# Todo - date and range of months is hardcoded in for now - these will be changed later to be configurable
-DATE = "202512"
-MONTH_RANGE = 12
+Json = dict[str, Any]
 
 QUERY_DIR = paths.data_config / "stat_xplore_queries"
 
@@ -22,38 +23,50 @@ QUERY_CONDITIONS = {
     "universal_credit_preparing_for_work": "CE",
     "universal_credit_searching_for_work": "AA",
 }
+DATE_RECODE_KEY = "str:field:UC_Monthly:F_UC_DATE:DATE_NAME"
+QUERY_DATE_STEM = "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE"
+
+CONDITION_RECODE_KEY = (
+    "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
+)
+QUERY_CONDITION_STEM = "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME"
 
 
-# ! review this - mutating the template on each call. could instead take in the template and emit an formatted query
 def construct_queries(
-    query_template: str,
     condition: str,
-    date: str = DATE,
-    month_range: int = MONTH_RANGE,
-) -> str:
-    # ammend date
-    query_template["recodes"]["str:field:UC_Monthly:F_UC_DATE:DATE_NAME"]["map"] = [
-        [
-            f"str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:{str(int(date) - month_distance)}"
-        ]
-        for month_distance in range(month_range)
+    months: list[str],
+    template_path: Path = QUERY_DIR / "uc_template.json",
+) -> dict:
+
+    with open(template_path, encoding="utf-8") as f:
+        query = json.load(f)
+
+    if type(query) is not dict:
+        raise TypeError("make sure the stat-xplore template query is valid json")
+
+    # set date
+    query["recodes"][DATE_RECODE_KEY]["map"] = [
+        [f"{QUERY_DATE_STEM}:{month}"] for month in months
     ]
-    # ammend uc condition
-    query_template["recodes"][
-        "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
-    ]["map"] = [
-        [
-            f"str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:{condition}"
-        ]
+
+    # set uc condition
+    query["recodes"][CONDITION_RECODE_KEY]["map"] = [
+        [f"{QUERY_CONDITION_STEM}:{condition}"]
     ]
-    return query_template
+
+    return query
 
 
-def get_queries() -> dict[str, str]:
-    with open(QUERY_DIR / "uc_template.json", encoding="utf-8") as f:
-        query_template = json.load(f)
+def get_queries(
+    snapshot_date: str,
+    window_months: int,
+) -> dict[str, dict]:
+
+    months = months_in_window(snapshot_date, window_months)
+    formatted_months = [month.replace("-", "") for month in months]
+
     return {
-        name: construct_queries(query_template, condition)
+        name: construct_queries(condition=condition, months=formatted_months)
         for name, condition in QUERY_CONDITIONS.items()
     }
 
@@ -106,8 +119,12 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     return dataset
 
 
-def fetch(force: bool = False):
-    queries = get_queries()
+def fetch(
+    snapshot_date: str,
+    window_months: int,
+    force_refresh: bool = False,
+):
+    queries = get_queries(snapshot_date, window_months)
     logger.info("loaded queries", num=len(queries))
 
     session = http_session.StatSession(api_key=os.environ.get("STATXPLORE_API_KEY", ""))
@@ -118,7 +135,7 @@ def fetch(force: bool = False):
             query=query,
             session=session,
             output_path=paths.data_raw / f"{name}.json",
-            force=force,
+            force=force_refresh,
         )
         for name, query in queries.items()
     }
@@ -146,9 +163,11 @@ def fetch(force: bool = False):
     logger.info("universal credit data written to file")
 
 
-def main():
-    fetch(force=True)
-
-
 if __name__ == "__main__":
-    main()
+    snapshot_date = "2025-12-01"
+    window_months = 12
+    fetch(
+        force_refresh=True,
+        snapshot_date=snapshot_date,
+        window_months=window_months,
+    )
