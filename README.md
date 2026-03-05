@@ -50,6 +50,7 @@ STATXPLORE_API_KEY=your_key_here
 uv run python main.py
 ```
 
+
 This fetches raw data from all sources, processes each into LSOA grain features, and combines them into a single output file at `data/output/combined_indicators.parquet`.
 
 The first run will take several minutes as it downloads data from each source. Subsequent runs use cached raw data unless you pass `force_refresh=True` to individual fetch functions.
@@ -60,6 +61,26 @@ To run an individual module during development:
 uv run python -m imd_pipeline.fetch.police_uk
 uv run python -m imd_pipeline.process.police_uk
 ```
+
+
+### Run the pipeline using orchestration
+
+Sync the virtual environment with the dev dependency group to add dagster, then activate the virtual environment
+
+```
+uv sync --dev
+.venv\scripts\activate
+```
+
+spin up dagster locally
+
+```
+dagster dev -m orchestration
+```
+
+Once started, dagster serves on localhost port 3000.
+Here, you will be able to see the dag in the browser with asset definitions. Materializing an asset will refresh that data.
+
 
 ## Project Structure
 
