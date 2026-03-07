@@ -29,10 +29,12 @@ def main():
     fetch.geography_lookup.fetch()
     fetch.postcode_lookup.fetch()
     fetch.lsoa_2011_2021_lookup.fetch()
+    fetch.population_lookup.fetch()
     logger.info("lookup data fetch complete")
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
+    population_data = process.population_lookup.process(save_processed_data=True)
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
@@ -53,8 +55,9 @@ def main():
 
     # combine processed data
     combined = combine.join(
-        crime_data, uc_data, connect_data, price_paid_data, osm_data
+        crime_data, uc_data, connect_data, price_paid_data, osm_data, population_data
     )
+
     logger.info("pipeline complete")
 
 

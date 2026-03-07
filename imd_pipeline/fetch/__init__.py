@@ -1,3 +1,4 @@
+
 from imd_pipeline.fetch import (
     connectivity,
     land_registry,
@@ -7,4 +8,5 @@ from imd_pipeline.fetch import (
     geography_lookup, 
     postcode_lookup, 
     lsoa_2011_2021_lookup,
+    population_lookup,
 )
