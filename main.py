@@ -34,7 +34,7 @@ def main():
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
-    population_data = process.population_lookup.process()
+    population_data = process.population_lookup.process(save_processed_data=True)
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
