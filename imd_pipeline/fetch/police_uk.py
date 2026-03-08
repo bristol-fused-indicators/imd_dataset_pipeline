@@ -1,6 +1,4 @@
 import json
-import tomllib
-from itertools import product
 from pathlib import Path
 
 import polars as pl
@@ -11,27 +9,11 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.timeframes import get_window_bounds, months_in_window
+from imd_pipeline.utils.timeframes import months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
 OUTPUT_DIR = paths.data_raw / "police_uk"
 MAX_MONTHS = 36
-
-
-def generate_months(start_year: int, end_year: int) -> list[str]:
-    """Returns a list of YYYY-MM strings for all months in a year range.
-
-    Args:
-        start_year: First year (inclusive).
-        end_year: Last year (exclusive).
-
-    Returns:
-        List of month strings in chronological order.
-    """
-    return [
-        f"{year}-{month:02d}"
-        for year, month in product(range(start_year, end_year), range(1, 13))
-    ]
 
 
 def extract_largest_polygon(geom) -> Polygon:
@@ -219,18 +201,9 @@ def fetch(
         ValueError: If the year range exceeds 36 months or is not set.
     """
 
-    start_year, end_year = get_window_bounds(
-        snapshot_date=snapshot_date, window_months=window_months
-    )
-
-    if start_year is None or end_year is None:
-        raise ValueError(
-            "you must set start_year and end_year, either when calling the function or in the config toml"
-        )
-
     if window_months > MAX_MONTHS:
         raise ValueError(
-            f"Date range {start_year}-{end_year} spans {window_months} months, "
+            f"Date range spans {window_months} months, "
             f"but the Police UK API only serves the most recent {MAX_MONTHS} months. "
             f"Reduce the range or use bulk CSV downloads from data.police.uk for historical data."
         )
