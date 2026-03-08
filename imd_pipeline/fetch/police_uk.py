@@ -119,7 +119,7 @@ def fetch_month(
     lsoa_polys: dict[str, str],
     session: requests.Session,
     output_dir: Path,
-    force: bool,
+    force_refresh: bool,
 ) -> Path:
     """Fetches crime data for a single month across all LSOA polygons and saves to parquet.
 
@@ -130,7 +130,7 @@ def fetch_month(
         lsoa_polys: Dict mapping lsoa_code to a formatted coordinate string.
         session: requests Session to use.
         output_dir: Directory to save the parquet file.
-        force: If True, refetch even if the file exists.
+        force_refresh: If True, refetch even if the file exists.
 
     Returns:
         Path to the saved parquet file.
@@ -138,7 +138,7 @@ def fetch_month(
 
     month_path = output_dir / f"{month}.parquet"
 
-    if month_path.exists() and not force:
+    if month_path.exists() and not force_refresh:
         logger.debug(f"cache hit: {month_path}")
         return month_path
 

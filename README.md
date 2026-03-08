@@ -52,7 +52,7 @@ uv run python main.py
 
 This fetches raw data from all sources, processes each into LSOA grain features, and combines them into a single output file at `data/output/combined_indicators.parquet`.
 
-The first run will take several minutes as it downloads data from each source. Subsequent runs use cached raw data unless you pass `force=True` to individual fetch functions.
+The first run will take several minutes as it downloads data from each source. Subsequent runs use cached raw data unless you pass `force_refresh=True` to individual fetch functions.
 
 To run an individual module during development:
 

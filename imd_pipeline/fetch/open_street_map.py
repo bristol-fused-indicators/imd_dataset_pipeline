@@ -44,7 +44,7 @@ out geom;
         url=overpass_url,
         output_path=output_path,
         session=create_session(),
-        force=force_refresh,
+        force_refresh=force_refresh,
         params={"data": bristol_data_query},
     )
 

@@ -11,7 +11,7 @@ def fetch(force_refresh: bool = False):
     """Downloads connectivity metrics data and saves it to parquet, skipping if already downloaded.
 
     Args:
-        force: If True, re-download even if the file exists.
+        force_refresh: If True, re-download even if the file exists.
 
     Warning:
         This can take up to 30 minutes due to conversion of a large ODS file.
