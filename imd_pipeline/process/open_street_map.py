@@ -276,7 +276,7 @@ def get_polygon(x) -> Polygon:
     return Polygon(json.loads(x).get("coordinates")[0][0])
 
 
-def process() -> pl.LazyFrame:
+def process(persist_processed_file: bool = False) -> pl.LazyFrame:
 
     logger.info("setting up open street map processing...")
 
@@ -402,6 +402,9 @@ def process() -> pl.LazyFrame:
         inplace=True,
     )
     logger.info("osm process complete")
+
+    if persist_processed_file:
+        lsoa_gdf.to_parquet(paths.data_processed / "open_street_map.parquet")
 
     return pl.from_pandas(lsoa_gdf).lazy()
 
