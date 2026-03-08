@@ -190,7 +190,7 @@ def fetch(
     for each month, then writes a consolidated all_crimes.parquet.
 
     Args:
-        start_year: a date (yyy-mm-dd) that is the reference for creating the snapshot of data
+        snapshot_date: a date (yyyy-mm-dd) that is the reference for creating the snapshot of data
         window_months: how many months of data should be fetched, back from the snapshot date
         force_refresh: If True, refetch all months even if files exist.
 
@@ -198,7 +198,7 @@ def fetch(
         Path to the consolidated parquet file.
 
     Raises:
-        ValueError: If the year range exceeds 36 months or is not set.
+        ValueError: If the year range exceeds 36 months
     """
 
     if window_months > MAX_MONTHS:
