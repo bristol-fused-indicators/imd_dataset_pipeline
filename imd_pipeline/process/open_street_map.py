@@ -23,6 +23,13 @@ BUFFER_DISTANCES = [
     5000,
 ]
 
+SELECTED_NEAREST_ANEMETIES = [
+    'hospital', 'pharmacy', 'school', 'kindergarten',
+    'college', 'university', 'bank', 'atm', 'ice_cream',
+    'fast_food', 'pub', 'bar', 'nightclub', 'stripclub',
+    'gambling', 'bicycle_parking', 'cinema', 'theatre',
+    'social_facility'
+]
 
 def count_ammenities(
     feature_frame: GeoDataFrame,
@@ -340,11 +347,15 @@ def process() -> pl.LazyFrame:
         index=lsoa_gdf.index,
     )
 
-    nearest_shop = find_nearest_poi(
-        feature_frame=lsoa_gdf.reset_index(),
-        point_osm_data=osm_points_gdf,
-        poi="shop",
-        distance=0,
+    nearest_ammenities_df = pd.DataFrame(
+        {f"nearest_{ammenity}": find_nearest_poi(
+            feature_frame=lsoa_gdf.reset_index(),
+            point_osm_data=osm_points_gdf,
+            poi=f"{ammenity}",
+            distance=0,
+            )
+        for ammenity in SELECTED_NEAREST_ANEMETIES
+        }
     )
 
     ratio_fastfood_dining = calculate_ratio_of_elements(
@@ -384,7 +395,7 @@ def process() -> pl.LazyFrame:
         [
             lsoa_gdf,
             count_ammenities_df,
-            nearest_shop,
+            nearest_ammenities_df,
             ratio_fastfood_dining,
             landuse_df,
             lit_pct,
