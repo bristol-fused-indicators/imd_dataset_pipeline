@@ -25,3 +25,7 @@ data/lookup/*.csv
 
 
 .vscode/*
+
+.tmp_dagster_home_*
+
+.dagster_home
