@@ -1,12 +1,10 @@
-from pathlib import Path
-
 from loguru import logger
 from project_paths import paths
 
 from imd_pipeline.utils.http import cached_fetch_json, create_session
 
 
-def fetch(force_refresh: bool = False) -> Path:
+def fetch(force_refresh: bool = False):
     """Fetches Bristol OSM data from the Overpass API using cached_fetch_json,
     which skips the download if the file already exists.
 
@@ -51,8 +49,6 @@ out geom;
     )
 
     logger.info("open street map data saved", path=output_path)
-
-    return response_path
 
 
 if __name__ == "__main__":

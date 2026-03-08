@@ -182,7 +182,7 @@ def fetch(
     snapshot_date: str,
     window_months: int,
     force_refresh: bool = False,
-) -> Path:
+):
     """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
 
     A start date and number of months must be set. Validates that the range
@@ -220,29 +220,6 @@ def fetch(
     for month in months:
         path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
         month_paths.append(path)
-
-    # consolidate all months into a single file
-    all_crimes_path = OUTPUT_DIR / "all_crimes.parquet"
-    if (
-        force_refresh
-        or not all_crimes_path.exists()
-        or any(
-            p.stat().st_mtime > all_crimes_path.stat().st_mtime
-            for p in month_paths
-            if p.exists()
-        )
-    ):
-        frames = [pl.scan_parquet(p) for p in month_paths if p.exists()]
-        if frames:
-            combined = pl.concat(frames).collect()
-            combined.write_parquet(all_crimes_path)
-            logger.info(
-                f"consolidated {len(combined)} total crimes to {all_crimes_path}"
-            )
-        else:
-            logger.warning("no crime data found across any month")
-
-    return all_crimes_path
 
 
 if __name__ == "__main__":
