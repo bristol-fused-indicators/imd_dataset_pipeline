@@ -2,6 +2,7 @@ from dagster import AssetExecutionContext, asset
 
 from imd_pipeline import combine, fetch, process
 
+from .configs import TimeframeConfig
 from .policies import (
     annual_freshness_policy,
     monthly_freshness_policy,
@@ -10,52 +11,70 @@ from .policies import (
 
 
 @asset(freshness_policy=annual_freshness_policy)
-def connectivity_raw_data():
+def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.connectivity.fetch()
 
 
 @asset(freshness_policy=monthly_freshness_policy)
-def land_registry_raw_data():
-    fetch.land_registry.fetch()
+def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
+
+    fetch.land_registry.fetch(
+        snapshot_date=config.snapshot_date,
+        window_months=config.window_months,
+    )
 
 
 @asset(freshness_policy=quarterly_freshness_policy)
-def open_street_map_raw_data():
+def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.open_street_map.fetch()
 
 
 @asset(freshness_policy=monthly_freshness_policy)
-def crime_raw_data():
+def crime_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.police_uk.fetch()
 
 
 @asset(freshness_policy=monthly_freshness_policy)
-def universal_credit_raw_data():
+def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.universal_credit.fetch()
 
 
 @asset(deps=[connectivity_raw_data])
-def connectivity_processed_data():
+def connectivity_processed_data(
+    context: AssetExecutionContext, config: TimeframeConfig
+):
     process.connectivity.process()
 
 
 @asset(deps=[land_registry_raw_data])
-def land_registry_processed_data():
-    process.land_registry.process()
+def land_registry_processed_data(
+    context: AssetExecutionContext, config: TimeframeConfig
+):
+    process.land_registry.process(
+        snapshot_date=config.snapshot_date,
+        window_months=config.window_months,
+    )
 
 
 @asset(deps=[open_street_map_raw_data])
-def open_street_map_processed_data():
+def open_street_map_processed_data(
+    context: AssetExecutionContext, config: TimeframeConfig
+):
     process.open_street_map.process()
 
 
 @asset(deps=[crime_raw_data])
-def crime_processed_data():
-    process.police_uk.process()
+def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
+    process.police_uk.process(
+        snapshot_date=config.snapshot_date,
+        window_months=config.window_months,
+    )
 
 
 @asset(deps=[universal_credit_raw_data])
-def universal_credit_processed_data():
+def universal_credit_processed_data(
+    context: AssetExecutionContext, config: TimeframeConfig
+):
     process.universal_credit.process()
 
 
