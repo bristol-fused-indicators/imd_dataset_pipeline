@@ -1,4 +1,6 @@
+import polars as pl
 from dagster import AssetExecutionContext, asset
+from project_paths import paths
 
 from imd_pipeline import combine, fetch, process
 
@@ -12,7 +14,7 @@ from .policies import (
 
 @asset(freshness_policy=annual_freshness_policy)
 def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.connectivity.fetch()
+    fetch.connectivity.fetch(force=config.force_refresh)
 
 
 @asset(freshness_policy=monthly_freshness_policy)
@@ -21,22 +23,23 @@ def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConf
     fetch.land_registry.fetch(
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
+        force_refresh=config.force_refresh,
     )
 
 
 @asset(freshness_policy=quarterly_freshness_policy)
 def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.open_street_map.fetch()
+    fetch.open_street_map.fetch(force_refresh=config.force_refresh)
 
 
 @asset(freshness_policy=monthly_freshness_policy)
 def crime_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.police_uk.fetch()
+    fetch.police_uk.fetch(force=config.force_refresh)
 
 
 @asset(freshness_policy=monthly_freshness_policy)
 def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.universal_credit.fetch()
+    fetch.universal_credit.fetch(force=config.force_refreshs)
 
 
 @asset(deps=[connectivity_raw_data])
@@ -53,6 +56,7 @@ def land_registry_processed_data(
     process.land_registry.process(
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
+        persist_intermediate_file=True,
     )
 
 
@@ -68,6 +72,7 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
     process.police_uk.process(
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
+        persist_intermediate_file=True,
     )
 
 
@@ -75,7 +80,7 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
 def universal_credit_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
 ):
-    process.universal_credit.process()
+    process.universal_credit.process(persist_intermediate_file=True)
 
 
 @asset(
@@ -87,7 +92,15 @@ def universal_credit_processed_data(
         universal_credit_processed_data,
     ]
 )
-def combined_data(): ...
+def combined_data():
+    all_frames = [
+        pl.scan_parquet(paths.data_processed / "police_uk.parquet"),
+        pl.scan_parquet(paths.data_processed / "universal_credit.parquet"),
+        pl.scan_parquet(paths.data_processed / "open_street_map.parquet"),
+        pl.scan_parquet(paths.data_processed / "land_registry.parquet"),
+        pl.scan_parquet(paths.data_processed / "connectivity.parquet"),
+    ]
+    combine.join(*all_frames)
 
 
 all_assets = [
