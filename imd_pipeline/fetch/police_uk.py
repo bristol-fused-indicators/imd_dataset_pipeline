@@ -1,6 +1,4 @@
 import json
-import tomllib
-from itertools import product
 from pathlib import Path
 
 import polars as pl
@@ -11,26 +9,11 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
 from imd_pipeline.utils.http import create_session
+from imd_pipeline.utils.timeframes import months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
 OUTPUT_DIR = paths.data_raw / "police_uk"
 MAX_MONTHS = 36
-
-
-def generate_months(start_year: int, end_year: int) -> list[str]:
-    """Returns a list of YYYY-MM strings for all months in a year range.
-
-    Args:
-        start_year: First year (inclusive).
-        end_year: Last year (exclusive).
-
-    Returns:
-        List of month strings in chronological order.
-    """
-    return [
-        f"{year}-{month:02d}"
-        for year, month in product(range(start_year, end_year), range(1, 13))
-    ]
 
 
 def extract_largest_polygon(geom) -> Polygon:
@@ -136,7 +119,7 @@ def fetch_month(
     lsoa_polys: dict[str, str],
     session: requests.Session,
     output_dir: Path,
-    force: bool,
+    force_refresh: bool,
 ) -> Path:
     """Fetches crime data for a single month across all LSOA polygons and saves to parquet.
 
@@ -147,7 +130,7 @@ def fetch_month(
         lsoa_polys: Dict mapping lsoa_code to a formatted coordinate string.
         session: requests Session to use.
         output_dir: Directory to save the parquet file.
-        force: If True, refetch even if the file exists.
+        force_refresh: If True, refetch even if the file exists.
 
     Returns:
         Path to the saved parquet file.
@@ -155,7 +138,7 @@ def fetch_month(
 
     month_path = output_dir / f"{month}.parquet"
 
-    if month_path.exists() and not force:
+    if month_path.exists() and not force_refresh:
         logger.debug(f"cache hit: {month_path}")
         return month_path
 
@@ -177,7 +160,7 @@ def fetch_month(
                 }
             )
 
-        if (i + 1) % 50 == 0:
+        if (i + 1) % 25 == 0:
             logger.debug(f"  {month}: {i + 1}/{len(lsoa_polys)} LSOAs fetched")
 
     df = pl.DataFrame(
@@ -196,51 +179,38 @@ def fetch_month(
 
 
 def fetch(
-    force: bool = False,
-    start_year: int | None = None,
-    end_year: int | None = None,
-) -> Path:
+    snapshot_date: str,
+    window_months: int,
+    force_refresh: bool = False,
+):
     """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
 
-    Reads start_year and end_year from config if not provided. Validates that the range
+    A start date and number of months must be set. Validates that the range
     does not exceed the API's 36-month limit. Calls load_lsoa_polygons and fetch_month
     for each month, then writes a consolidated all_crimes.parquet.
 
     Args:
-        force: If True, refetch all months even if files exist.
-        start_year: First year to fetch (inclusive). Overrides config if provided.
-        end_year: Last year to fetch (exclusive). Overrides config if provided.
+        snapshot_date: a date (yyyy-mm-dd) that is the reference for creating the snapshot of data
+        window_months: how many months of data should be fetched, back from the snapshot date
+        force_refresh: If True, refetch all months even if files exist.
 
     Returns:
         Path to the consolidated parquet file.
 
     Raises:
-        ValueError: If the year range exceeds 36 months or is not set.
+        ValueError: If the year range exceeds 36 months
     """
 
-    pyproject_path = Path(paths._path_to_toml)
-    with open(pyproject_path, "rb") as f:
-        config = tomllib.load(f)["tool"]["imd-pipeline"]
-
-    start_year = start_year or config.get("police_start_year")
-    end_year = end_year or config.get("police_end_year")
-
-    if start_year is None or end_year is None:
+    if window_months > MAX_MONTHS:
         raise ValueError(
-            "you must set start_year and end_year, either when calling the function or in the config toml"
-        )
-
-    total_months = (end_year - start_year) * 12
-    if total_months > MAX_MONTHS:
-        raise ValueError(
-            f"Date range {start_year}-{end_year} spans {total_months} months, "
+            f"Date range spans {window_months} months, "
             f"but the Police UK API only serves the most recent {MAX_MONTHS} months. "
             f"Reduce the range or use bulk CSV downloads from data.police.uk for historical data."
         )
 
     lookup_path = paths.data_lookup / "geography_lookup.csv"
     lsoa_polys = load_lsoa_polygons(lookup_path)
-    months = generate_months(start_year, end_year)
+    months = months_in_window(snapshot_date=snapshot_date, window_months=window_months)
     logger.info(
         f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
     )
@@ -248,32 +218,9 @@ def fetch(
     session = create_session()
     month_paths = []
     for month in months:
-        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force)
+        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
         month_paths.append(path)
-
-    # consolidate all months into a single file
-    all_crimes_path = OUTPUT_DIR / "all_crimes.parquet"
-    if (
-        force
-        or not all_crimes_path.exists()
-        or any(
-            p.stat().st_mtime > all_crimes_path.stat().st_mtime
-            for p in month_paths
-            if p.exists()
-        )
-    ):
-        frames = [pl.scan_parquet(p) for p in month_paths if p.exists()]
-        if frames:
-            combined = pl.concat(frames).collect()
-            combined.write_parquet(all_crimes_path)
-            logger.info(
-                f"consolidated {len(combined)} total crimes to {all_crimes_path}"
-            )
-        else:
-            logger.warning("no crime data found across any month")
-
-    return all_crimes_path
 
 
 if __name__ == "__main__":
-    fetch(force=True)
+    fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True)

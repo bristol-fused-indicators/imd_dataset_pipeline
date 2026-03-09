@@ -1,5 +1,5 @@
-from io import BytesIO
 import zipfile
+from io import BytesIO
 
 import pandas as pd
 from loguru import logger
@@ -8,13 +8,10 @@ from project_paths import paths
 from imd_pipeline.utils.http import create_session
 
 
-
-
-
-def fetch(force: bool = False):
+def fetch(force_refresh: bool = False):
 
     output_path = paths.data_raw / "lookup" / "postcode_lookup.parquet"
-    if output_path.exists() and not force:
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
 
@@ -22,9 +19,9 @@ def fetch(force: bool = False):
     session = create_session()
     logger.info("downloading postcode_lookup data", url=url)
     r = session.get(url)
-    
+
     with zipfile.ZipFile(BytesIO(r.content)) as z:
-        csv_name = z.namelist()[0] # only one file in the zip
+        csv_name = z.namelist()[0]  # only one file in the zip
 
         with z.open(csv_name) as f:
             df: pd.DataFrame = pd.read_csv(f)

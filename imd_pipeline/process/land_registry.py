@@ -121,7 +121,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(
-    window_months, snapshot_date, persist_intermediate_file: bool = False
+    window_months, snapshot_date, persist_processed_file: bool = False
 ) -> pl.LazyFrame:
     """Loads Land Registry CSVs for the time window, maps postcodes to LSOA codes, filters to Bristol, and aggregates stats.
 
@@ -170,7 +170,7 @@ def process(
         .pipe(aggregate_stats)
     )
 
-    if persist_intermediate_file:
+    if persist_processed_file:
         dataframe.sink_parquet(paths.data_processed / "land_registry.parquet")
 
     return dataframe

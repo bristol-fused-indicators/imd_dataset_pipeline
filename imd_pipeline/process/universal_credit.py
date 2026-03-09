@@ -69,7 +69,7 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
+def process(persist_processed_file: bool = False) -> pl.LazyFrame:
     """Loads raw UC data, maps LSOA names to codes, filters to Bristol, aggregates by LSOA, and calculates ratios.
 
     Args:
@@ -99,7 +99,7 @@ def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
         .pipe(calculate_ratios)
     )
 
-    if persist_intermediate_file:
+    if persist_processed_file:
         df.sink_parquet(paths.data_processed / "universal_credit.parquet")
         logger.info(
             "universal credit data written",

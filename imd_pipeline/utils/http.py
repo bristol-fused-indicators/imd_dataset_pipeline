@@ -41,7 +41,7 @@ def cached_fetch(
     url: str,
     output_path: Path,
     session: requests.Session,
-    force: bool = False,
+    force_refresh: bool = False,
 ) -> Path:
     """Downloads a file to disk, skipping the download if the file already exists.
 
@@ -49,12 +49,12 @@ def cached_fetch(
         url: URL to download from.
         output_path: Path to save the file to.
         session: requests Session to use.
-        force: If True, re-download even if the file exists.
+        force_refresh: If True, re-download even if the file exists.
 
     Returns:
         Path to the downloaded file.
     """
-    if output_path.exists() and not force:
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return output_path
 
@@ -82,7 +82,7 @@ def cached_fetch_json(
     url: str,
     output_path: Path,
     session: requests.Session,
-    force: bool = False,
+    force_refresh: bool = False,
     params: dict | None = None,
 ) -> Path:
     """Fetches JSON from a URL and saves it to disk, skipping if the file already exists.
@@ -91,13 +91,13 @@ def cached_fetch_json(
         url: URL to fetch from.
         output_path: Path to save the JSON file to.
         session: requests Session to use.
-        force: If True, re-fetch even if the file exists.
+        force_refresh: If True, re-fetch even if the file exists.
         params: Optional query parameters to include in the request.
 
     Returns:
         Path to the saved JSON file.
     """
-    if output_path.exists() and not force:
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return output_path
 

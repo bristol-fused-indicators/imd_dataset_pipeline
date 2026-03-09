@@ -109,14 +109,14 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(
-    window_months, snapshot_date, persist_intermediate_file: bool = False
+    window_months, snapshot_date, persist_processed_file: bool = False
 ) -> pl.LazyFrame:
     """Loads monthly police parquet files within the time window, filters to Bristol, aggregates by category and outcome, and derives summary stats.
 
     Args:
         window_months: Number of months in the time window.
         snapshot_date: End date of the window in YYYY-MM-DD format.
-        persist_intermediate_file: If True, sinks the result to a parquet file before returning.
+        persist_processed_file: If True, sinks the result to a parquet file before returning.
 
     Returns:
         LazyFrame of aggregated crime stats per Bristol LSOA.
@@ -146,7 +146,7 @@ def process(
         .pipe(derive_stats)
     )
 
-    if persist_intermediate_file:
+    if persist_processed_file:
         dataframe.sink_parquet(paths.data_processed / "police_uk.parquet")
         logger.info(
             "police data written", path=str(paths.data_processed / "police_uk.parquet")

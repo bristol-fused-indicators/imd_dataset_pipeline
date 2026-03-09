@@ -7,11 +7,10 @@ from project_paths import paths
 from imd_pipeline.utils.http import create_session
 
 
-
-def fetch(force: bool = False):
+def fetch(force_refresh: bool = False):
 
     output_path = paths.data_raw / "lookup" / "population_lookup.parquet"
-    if output_path.exists() and not force:
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
 

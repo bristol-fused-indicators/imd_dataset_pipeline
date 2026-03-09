@@ -34,12 +34,12 @@ def main():
     process.geography_lookup.process()
     process.postcode_lookup.process()
     process.lsoa_2011_2021_lookup.process()
-    population_data = process.population_lookup.process(save_processed_data=True)
+    population_data = process.population_lookup.process(persist_processed_file=True)
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
-    fetch.police_uk.fetch()
-    fetch.universal_credit.fetch()
+    fetch.police_uk.fetch(snapshot_date="2025-12-01", window_months=12)
+    fetch.universal_credit.fetch(snapshot_date="2025-12-01", window_months=12)
     fetch.connectivity.fetch()
     fetch.land_registry.fetch(window_months=12, snapshot_date="2025-12-01")
     fetch.open_street_map.fetch()
