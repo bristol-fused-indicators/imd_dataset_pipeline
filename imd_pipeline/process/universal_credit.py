@@ -4,6 +4,7 @@ from project_paths import paths
 
 from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
 
+OUTPUT_DIR = paths.data_raw / "universal_credit"
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     return lf.group_by(pl.col("lsoa_code")).agg(
@@ -70,10 +71,10 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
 def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
     logger.info(
         "processing universal credit data",
-        source=str(paths.data_raw / "universal_credit.parquet"),
+        source=str(OUTPUT_DIR / "universal_credit.parquet"),
     )
     df = (
-        pl.scan_parquet(paths.data_raw / "universal_credit.parquet")
+        pl.scan_parquet(OUTPUT_DIR / "universal_credit.parquet")
         .pipe(
             map_lsoa_names_to_codes,
             name_col="lsoa_name",

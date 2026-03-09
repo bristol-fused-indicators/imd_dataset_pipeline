@@ -20,7 +20,7 @@ def fetch(force: bool = False):
     r = session.get(url)
 
     df: pd.DataFrame = pd.read_excel(
-        BytesIO(r.content), engine="odf", sheet_name="LSOA", header=2
+        BytesIO(r.content), engine="calamine", sheet_name="LSOA", header=2
     )
 
     logger.debug("connectivity data loaded", shape=df.shape)

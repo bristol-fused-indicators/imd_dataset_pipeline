@@ -28,6 +28,11 @@ dependencies = [
     "statxplore>=0.0.1.post1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "python-calamine>=0.6.2",
+]
+
 [dependency-groups]
 dev = [
     "icecream>=2.1.10",
