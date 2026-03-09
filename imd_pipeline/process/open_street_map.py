@@ -24,7 +24,7 @@ BUFFER_DISTANCES = [
 ]
 
 SELECTED_NEAREST_POI = [
-    'hospital', 'pharmacy', 'school', 'kindergarten',
+    'shop', 'hospital', 'pharmacy', 'school', 'kindergarten',
     'college', 'university', 'bank', 'atm', 'ice_cream',
     'fast_food', 'pub', 'bar', 'nightclub', 'stripclub',
     'gambling', 'bicycle_parking', 'cinema', 'theatre',
