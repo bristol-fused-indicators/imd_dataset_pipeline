@@ -14,7 +14,7 @@ from .policies import (
 
 @asset(freshness_policy=annual_freshness_policy)
 def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.connectivity.fetch(force=config.force_refresh)
+    fetch.connectivity.fetch(force_refresh=config.force_refresh)
 
 
 @asset(freshness_policy=monthly_freshness_policy)
@@ -34,12 +34,20 @@ def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeCo
 
 @asset(freshness_policy=monthly_freshness_policy)
 def crime_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.police_uk.fetch(force=config.force_refresh)
+    fetch.police_uk.fetch(
+        force_refresh=config.force_refresh,
+        snapshot_date=config.snapshot_date,
+        window_months=config.window_months,
+    )
 
 
 @asset(freshness_policy=monthly_freshness_policy)
 def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
-    fetch.universal_credit.fetch(force=config.force_refreshs)
+    fetch.universal_credit.fetch(
+        force_refresh=config.force_refresh,
+        snapshot_date=config.snapshot_date,
+        window_months=config.window_months,
+    )
 
 
 @asset(deps=[connectivity_raw_data])
@@ -56,7 +64,7 @@ def land_registry_processed_data(
     process.land_registry.process(
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
-        persist_intermediate_file=True,
+        persist_processed_file=True,
     )
 
 
@@ -72,7 +80,7 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
     process.police_uk.process(
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
-        persist_intermediate_file=True,
+        persist_processed_file=True,
     )
 
 
@@ -80,7 +88,7 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
 def universal_credit_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
 ):
-    process.universal_credit.process(persist_intermediate_file=True)
+    process.universal_credit.process(persist_processed_file=True)
 
 
 @asset(
