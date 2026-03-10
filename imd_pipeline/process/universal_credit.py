@@ -4,7 +4,7 @@ from project_paths import paths
 
 from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
 
-OUTPUT_DIR = paths.data_raw / "universal_credit"
+INPUT_DIR = paths.data_raw / "universal_credit"
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - groups by LSOA, computing total and mean monthly claims for each UC conditionality group."""
@@ -82,10 +82,10 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
 
     logger.info(
         "processing universal credit data",
-        source=str(OUTPUT_DIR / "universal_credit.parquet"),
+        source=str(INPUT_DIR / "universal_credit.parquet"),
     )
     df = (
-        pl.scan_parquet(OUTPUT_DIR / "universal_credit.parquet")
+        pl.scan_parquet(INPUT_DIR / "universal_credit.parquet")
         .pipe(
             map_lsoa_names_to_codes,
             name_col="lsoa_name",

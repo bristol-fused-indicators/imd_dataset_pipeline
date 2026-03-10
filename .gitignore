@@ -22,6 +22,7 @@ data/raw/land_registry/*.csv
 data/raw/osm/*.json
 data/raw/lookup/*.parquet
 data/lookup/*.csv
+data/raw/universal_credit/*.parquet
 
 
 .vscode/*
