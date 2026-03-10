@@ -1,3 +1,1 @@
-from orchestration.definitions import defs
-
-definitions = defs()
+from orchestration.definitions import definitions as definitions
