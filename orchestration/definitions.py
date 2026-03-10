@@ -1,5 +1,9 @@
 from dagster import Definitions
 
 from .assets import all_assets
+from .jobs import all_jobs
 
-definitions = Definitions(assets=all_assets)
+definitions = Definitions(
+    assets=all_assets,
+    jobs=all_jobs,
+)
