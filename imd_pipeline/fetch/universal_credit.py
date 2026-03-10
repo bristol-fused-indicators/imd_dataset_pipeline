@@ -16,6 +16,7 @@ load_dotenv()
 Json = dict[str, Any]
 
 QUERY_DIR = paths.data_config / "stat_xplore_queries"
+OUTPUT_DIR = paths.data_raw / "universal_credit"
 
 QUERY_CONDITIONS = {
     "universal_credit_no_work_required": "BC",
@@ -131,6 +132,8 @@ def fetch(
     session = http_session.StatSession(api_key=os.environ.get("STATXPLORE_API_KEY", ""))
     logger.info("created statxplore session")
 
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
     responses = {
         name: get_data(
             query=query,
@@ -159,7 +162,7 @@ def fetch(
         groups=combined_frame["condition_group"].unique().to_list(),
     )
 
-    combined_frame.write_parquet(file=paths.data_raw / "universal_credit.parquet")
+    combined_frame.write_parquet(file=OUTPUT_DIR / "universal_credit.parquet")
 
     logger.info("universal credit data written to file")
 
