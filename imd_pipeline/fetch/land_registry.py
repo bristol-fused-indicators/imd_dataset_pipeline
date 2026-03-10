@@ -33,7 +33,7 @@ def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Pa
     output_path = RAW_DIR / f"land_registry_price_paid_{year}.csv"
     logger.info("fetching yearly land registry data", year=year)
     return cached_fetch(
-        url=url, output_path=output_path, session=session, force=force_refresh
+        url=url, output_path=output_path, session=session, force_refresh=force_refresh
     )
 
 
