@@ -1,5 +1,9 @@
 import polars as pl
-from dagster import AssetExecutionContext, MaterializeResult, asset
+from dagster import (
+    AssetExecutionContext,
+    MaterializeResult,
+    asset,
+)
 from project_paths import paths
 
 from imd_pipeline import combine, fetch, process
@@ -16,10 +20,17 @@ from .policies import (
 def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.connectivity.fetch(force_refresh=config.force_refresh)
 
+    output = paths.data_raw / "connectivity.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -33,22 +44,36 @@ def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConf
         force_refresh=config.force_refresh,
     )
 
+    output = paths.data_raw / "land_registry"
+    files_available = sorted(path.name for path in output.iterdir())
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "files_available": files_available,
         }
     )
 
 
 @asset(freshness_policy=quarterly_freshness_policy)
 def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
+
     fetch.open_street_map.fetch(force_refresh=config.force_refresh)
+
+    output = paths.data_raw / "osm" / "overpass_response.json"
+    stat = output.stat()
 
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -61,10 +86,16 @@ def crime_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
         window_months=config.window_months,
     )
 
+    output = paths.data_raw / "police_uk"
+    files_available = sorted(path.name for path in output.iterdir())
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "files_available": files_available,
         }
     )
 
@@ -77,10 +108,17 @@ def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeC
         window_months=config.window_months,
     )
 
+    output = paths.data_raw / "universal_credit.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -91,10 +129,17 @@ def connectivity_processed_data(
 ):
     process.connectivity.process()
 
+    output = paths.data_processed / "connectivity.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -109,10 +154,17 @@ def land_registry_processed_data(
         persist_processed_file=True,
     )
 
+    output = paths.data_processed / "land_registry.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -123,10 +175,17 @@ def open_street_map_processed_data(
 ):
     process.open_street_map.process()
 
+    output = paths.data_processed / "open_street_map.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -139,10 +198,17 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
         persist_processed_file=True,
     )
 
+    output = paths.data_processed / "police_uk.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -153,10 +219,17 @@ def universal_credit_processed_data(
 ):
     process.universal_credit.process(persist_processed_file=True)
 
+    output = paths.data_processed / "universal_credit.parquet"
+    stat = output.stat()
+
     return MaterializeResult(
         metadata={
             "snapshot_date": config.snapshot_date,
             "window_months": config.window_months,
+            "force_refresh": config.force_refresh,
+            "output_path": str(output),
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
