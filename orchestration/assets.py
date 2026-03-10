@@ -1,5 +1,5 @@
 import polars as pl
-from dagster import AssetExecutionContext, asset
+from dagster import AssetExecutionContext, MaterializeResult, asset
 from project_paths import paths
 
 from imd_pipeline import combine, fetch, process
@@ -16,6 +16,13 @@ from .policies import (
 def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.connectivity.fetch(force_refresh=config.force_refresh)
 
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
+
 
 @asset(freshness_policy=monthly_freshness_policy)
 def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
@@ -26,10 +33,24 @@ def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConf
         force_refresh=config.force_refresh,
     )
 
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
+
 
 @asset(freshness_policy=quarterly_freshness_policy)
 def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.open_street_map.fetch(force_refresh=config.force_refresh)
+
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
 
 
 @asset(freshness_policy=monthly_freshness_policy)
@@ -38,6 +59,13 @@ def crime_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
         force_refresh=config.force_refresh,
         snapshot_date=config.snapshot_date,
         window_months=config.window_months,
+    )
+
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
     )
 
 
@@ -49,12 +77,26 @@ def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeC
         window_months=config.window_months,
     )
 
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
+
 
 @asset(deps=[connectivity_raw_data])
 def connectivity_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
 ):
     process.connectivity.process()
+
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
 
 
 @asset(deps=[land_registry_raw_data])
@@ -67,12 +109,26 @@ def land_registry_processed_data(
         persist_processed_file=True,
     )
 
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
+
 
 @asset(deps=[open_street_map_raw_data])
 def open_street_map_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
 ):
     process.open_street_map.process()
+
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
 
 
 @asset(deps=[crime_raw_data])
@@ -83,12 +139,26 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
         persist_processed_file=True,
     )
 
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
+
 
 @asset(deps=[universal_credit_raw_data])
 def universal_credit_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
 ):
     process.universal_credit.process(persist_processed_file=True)
+
+    return MaterializeResult(
+        metadata={
+            "snapshot_date": config.snapshot_date,
+            "window_months": config.window_months,
+        }
+    )
 
 
 @asset(
@@ -109,6 +179,8 @@ def combined_data():
         pl.scan_parquet(paths.data_processed / "connectivity.parquet"),
     ]
     combine.join(*all_frames)
+
+    return MaterializeResult()
 
 
 all_assets = [
