@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 from dotenv import load_dotenv
@@ -8,11 +9,11 @@ from loguru import logger
 from project_paths import paths
 from statxplore import http_session, objects
 
+from imd_pipeline.utils.timeframes import months_in_window
+
 load_dotenv()
 
-# date and range of months is hardcoded in for now - these will be changed later to be configurable
-DATE = '202512'
-MONTH_RANGE = 12
+Json = dict[str, Any]
 
 QUERY_DIR = paths.data_config / "stat_xplore_queries"
 OUTPUT_DIR = paths.data_raw / "universal_credit"
@@ -24,24 +25,56 @@ QUERY_CONDITIONS = {
     "universal_credit_searching_for_work": "AA",
 }
 
+DATE_RECODE_KEY = "str:field:UC_Monthly:F_UC_DATE:DATE_NAME"
+QUERY_DATE_STEM = "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE"
 
-def construct_queries(query_template: str, condition: str, date: str=DATE, month_range: int=MONTH_RANGE) -> str:
-    # ammend date
-    query_template['recodes']['str:field:UC_Monthly:F_UC_DATE:DATE_NAME']['map'] = [
-        [f"str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE:{str(int(date) - month_distance)}"] for month_distance in range(month_range)]
-    # ammend uc condition
-    query_template['recodes']['str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME']['map'] = [
-        [f"str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME:{condition}"]]
-    return query_template
-
-def get_queries() -> dict[str, str]:
-    with open(QUERY_DIR / "uc_template.json", encoding="utf-8") as f:
-        query_template = json.load(f)
-    return {name: construct_queries(query_template, condition) for name, condition in QUERY_CONDITIONS.items()}
+CONDITION_RECODE_KEY = (
+    "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
+)
+QUERY_CONDITION_STEM = "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME"
 
 
-def get_data(query: dict, session, output_path: Path, force=False) -> dict:
-    if output_path.exists() and not force:
+def construct_queries(
+    condition: str,
+    months: list[str],
+    template_path: Path = QUERY_DIR / "uc_template.json",
+) -> dict:
+
+    with open(template_path, encoding="utf-8") as f:
+        query = json.load(f)
+
+    if type(query) is not dict:
+        raise TypeError("make sure the stat-xplore template query is valid json")
+
+    # set date
+    query["recodes"][DATE_RECODE_KEY]["map"] = [
+        [f"{QUERY_DATE_STEM}:{month}"] for month in months
+    ]
+
+    # set uc condition
+    query["recodes"][CONDITION_RECODE_KEY]["map"] = [
+        [f"{QUERY_CONDITION_STEM}:{condition}"]
+    ]
+
+    return query
+
+
+def get_queries(
+    snapshot_date: str,
+    window_months: int,
+) -> dict[str, dict]:
+
+    months = months_in_window(snapshot_date, window_months)
+    formatted_months = [month.replace("-", "") for month in months]
+
+    return {
+        name: construct_queries(condition=condition, months=formatted_months)
+        for name, condition in QUERY_CONDITIONS.items()
+    }
+
+
+def get_data(query: dict, session, output_path: Path, force_refresh=False) -> dict:
+    if output_path.exists() and not force_refresh:
         logger.debug("reading cached file", path=output_path)
         return json.loads(output_path.read_text(encoding="utf-8"))
 
@@ -71,7 +104,7 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # access the data
-    # todo rewrite this
+    # todo rewrite this - [val[0] is fragile, plus nested list comp
     key = next(iter(dataset["cubes"]))
     data_body = dataset["cubes"][key]["values"]
     data_body = [
@@ -79,17 +112,21 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     ]
 
     # construct dataframe
-    dataset = (
+    df = (
         pl.DataFrame(data_body, schema=months, orient="row")
         .with_columns([pl.Series("lsoa_name", lsoas)])
         .unpivot(index="lsoa_name", variable_name="month")
     )
 
-    return dataset
+    return df
 
 
-def fetch(force: bool = False):
-    queries = get_queries()
+def fetch(
+    snapshot_date: str,
+    window_months: int,
+    force_refresh: bool = False,
+):
+    queries = get_queries(snapshot_date, window_months)
     logger.info("loaded queries", num=len(queries))
 
     session = http_session.StatSession(api_key=os.environ.get("STATXPLORE_API_KEY", ""))
@@ -102,7 +139,7 @@ def fetch(force: bool = False):
             query=query,
             session=session,
             output_path=paths.data_raw / f"{name}.json",
-            force=force,
+            force_refresh=force_refresh,
         )
         for name, query in queries.items()
     }
@@ -130,9 +167,11 @@ def fetch(force: bool = False):
     logger.info("universal credit data written to file")
 
 
-def main():
-    fetch(force=False)
-
-
 if __name__ == "__main__":
-    main()
+    snapshot_date = "2025-12-01"
+    window_months = 12
+    fetch(
+        force_refresh=True,
+        snapshot_date=snapshot_date,
+        window_months=window_months,
+    )

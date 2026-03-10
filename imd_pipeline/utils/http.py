@@ -14,7 +14,17 @@ def create_session(
     backoff: float = 2,
     status_forcelist: list[int] | None = None,
 ) -> requests.Session:
-    status_forcelist = status_forcelist or [429, 500, 503]
+    """Creates a requests Session with retry logic.
+
+    Args:
+        retries: Maximum number of retries.
+        backoff: Exponential backoff factor between retries.
+        status_forcelist: HTTP status codes that trigger a retry.
+
+    Returns:
+        A configured requests Session.
+    """
+    status_forcelist = status_forcelist or [429, 500, 503, 504]
     retry = Retry(
         total=retries,
         backoff_factor=backoff,
@@ -31,9 +41,20 @@ def cached_fetch(
     url: str,
     output_path: Path,
     session: requests.Session,
-    force: bool = False,
+    force_refresh: bool = False,
 ) -> Path:
-    if output_path.exists() and not force:
+    """Downloads a file to disk, skipping the download if the file already exists.
+
+    Args:
+        url: URL to download from.
+        output_path: Path to save the file to.
+        session: requests Session to use.
+        force_refresh: If True, re-download even if the file exists.
+
+    Returns:
+        Path to the downloaded file.
+    """
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return output_path
 
@@ -61,10 +82,22 @@ def cached_fetch_json(
     url: str,
     output_path: Path,
     session: requests.Session,
-    force: bool = False,
+    force_refresh: bool = False,
     params: dict | None = None,
 ) -> Path:
-    if output_path.exists() and not force:
+    """Fetches JSON from a URL and saves it to disk, skipping if the file already exists.
+
+    Args:
+        url: URL to fetch from.
+        output_path: Path to save the JSON file to.
+        session: requests Session to use.
+        force_refresh: If True, re-fetch even if the file exists.
+        params: Optional query parameters to include in the request.
+
+    Returns:
+        Path to the saved JSON file.
+    """
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return output_path
 

@@ -1,16 +1,24 @@
 from io import BytesIO
 
-import pandas as pd
+import polars as pl
 from loguru import logger
 from project_paths import paths
 
 from imd_pipeline.utils.http import create_session
 
 
-def fetch(force: bool = False):
+def fetch(force_refresh: bool = False):
+    """Downloads connectivity metrics data and saves it to parquet, skipping if already downloaded.
+
+    Args:
+        force_refresh: If True, re-download even if the file exists.
+
+    Warning:
+        This can take up to 30 minutes due to conversion of a large ODS file.
+    """
 
     output_path = paths.data_raw / "connectivity.parquet"
-    if output_path.exists() and not force:
+    if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
 
@@ -19,15 +27,18 @@ def fetch(force: bool = False):
     logger.info("downloading connectivity data", url=url)
     r = session.get(url)
 
-    df: pd.DataFrame = pd.read_excel(
-        BytesIO(r.content), engine="calamine", sheet_name="LSOA", header=2
+    df = pl.read_excel(
+        BytesIO(r.content),
+        sheet_name="LSOA",
+        engine="calamine",
+        read_options={"header_row": 2},
     )
 
     logger.debug("connectivity data loaded", shape=df.shape)
 
-    df.to_parquet(output_path)
+    df.write_parquet(output_path)
     logger.info("connectivity data written", path=str(output_path))
 
 
 if __name__ == "__main__":
-    fetch()
+    fetch(force_refresh=True)

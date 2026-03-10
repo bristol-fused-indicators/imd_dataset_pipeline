@@ -7,6 +7,7 @@ from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
 OUTPUT_DIR = paths.data_raw / "universal_credit"
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - groups by LSOA, computing total and mean monthly claims for each UC conditionality group."""
     return lf.group_by(pl.col("lsoa_code")).agg(
         [
             pl.col("value").sum().alias("total_claims"),
@@ -56,6 +57,7 @@ def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - adds percentage columns for each UC conditionality group relative to total claims."""
     return lf.with_columns(
         (pl.col("total_nwr_claims") / pl.col("total_claims")).alias("%_claims_nwr"),
         (pl.col("total_planfw_claims") / pl.col("total_claims")).alias(
@@ -68,7 +70,16 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
+def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+    """Loads raw UC data, maps LSOA names to codes, filters to Bristol, aggregates by LSOA, and calculates ratios.
+
+    Args:
+        persist_intermediate_file: If True, sinks the result to a parquet file before returning.
+
+    Returns:
+        LazyFrame of aggregated UC stats per Bristol LSOA.
+    """
+
     logger.info(
         "processing universal credit data",
         source=str(OUTPUT_DIR / "universal_credit.parquet"),
@@ -89,7 +100,7 @@ def process(persist_intermediate_file: bool = False) -> pl.LazyFrame:
         .pipe(calculate_ratios)
     )
 
-    if persist_intermediate_file:
+    if persist_processed_file:
         df.sink_parquet(paths.data_processed / "universal_credit.parquet")
         logger.info(
             "universal credit data written",

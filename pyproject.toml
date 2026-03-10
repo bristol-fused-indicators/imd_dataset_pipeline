@@ -12,6 +12,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastexcel>=0.19.0",
     "geopandas>=1.1.2",
     "geopolars>=0.1.0a4",
     "joblib>=1.5.3",
@@ -36,6 +37,7 @@ dev = [
 [dependency-groups]
 dev = [
     "icecream>=2.1.10",
+    "pytest>=9.0.2",
     "ruff>=0.15.2",
 ]
 

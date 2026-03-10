@@ -25,11 +25,24 @@ def main():
         snapshot_date=config.snapshot_date,
     )
 
+    # fetch and process lookup data
+    fetch.geography_lookup.fetch()
+    fetch.postcode_lookup.fetch()
+    fetch.lsoa_2011_2021_lookup.fetch()
+    fetch.population_lookup.fetch()
+    logger.info("lookup data fetch complete")
+    process.geography_lookup.process()
+    process.postcode_lookup.process()
+    process.lsoa_2011_2021_lookup.process()
+    population_data = process.population_lookup.process(persist_processed_file=True)
+    logger.info("lookup data process complete")
+
     # fetch the raw data from source
-    fetch.police_uk.fetch()
-    fetch.universal_credit.fetch()
+    fetch.police_uk.fetch(snapshot_date="2025-12-01", window_months=12)
+    fetch.universal_credit.fetch(snapshot_date="2025-12-01", window_months=12)
     fetch.connectivity.fetch()
     fetch.land_registry.fetch(window_months=12, snapshot_date="2025-12-01")
+    fetch.open_street_map.fetch()
     logger.info("fetch stage complete")
 
     # process raw data into tabular feature sets
@@ -37,10 +50,14 @@ def main():
     uc_data = process.universal_credit.process()
     connect_data = process.connectivity.process()
     price_paid_data = process.land_registry.process(12, "2025-12-01")
+    osm_data = process.open_street_map.process()
     logger.info("process stage complete")
 
     # combine processed data
-    combined = combine.join(crime_data, uc_data, connect_data, price_paid_data)
+    combined = combine.join(
+        crime_data, uc_data, connect_data, price_paid_data, osm_data, population_data
+    )
+
     logger.info("pipeline complete")
 
 

@@ -6,7 +6,8 @@ import polars.selectors as slt
 from loguru import logger
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
+from imd_pipeline.utils.lsoas import filter_bristol
+from imd_pipeline.utils.timeframes import months_in_window
 
 CRIME_CATEGORIES = [
     "robbery",
@@ -43,28 +44,22 @@ CRIME_OUTCOMES = [
 ]
 
 
-def _month(month_decriment: int, startdate: date) -> date:
-    new_month = startdate.month - 1 - month_decriment
-    year = startdate.year + new_month // 12
-    month = new_month % 12 + 1
-    return date(year, month, 1)
-
-
 @cache
 def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
-    start = date.fromisoformat(snapshot_date)
-    month = partial(_month, startdate=start)
+    """Cached helper for file_in_window - precomputes the set of valid month filenames for a time window."""
+    # want to use a set for quick membership check, but cache requires a hashable object, so a frozenset is used
     return frozenset(
-        month(decrement).strftime("%Y-%m") + ".parquet"
-        for decrement in range(window_months)
+        f"{month}.parquet" for month in months_in_window(snapshot_date, window_months)
     )
 
 
 def file_in_window(filename, window_months, snapshot_date) -> bool:
+    """Checks if a parquet filename falls within the time window, used in process to select which monthly files to load."""
     return filename in _valid_names(window_months, snapshot_date)
 
 
 def aggregate_by_category(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - pivots crime data by category, producing one count column per crime category per LSOA."""
     return (
         lf.select(pl.col("lsoa_code"), pl.col("category"))
         .with_columns(pl.lit(1).alias("_dummy_count_"))
@@ -80,6 +75,7 @@ def aggregate_by_category(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_by_outcome(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - pivots crime data by outcome, producing one count column per outcome type per LSOA."""
     return (
         lf.select(pl.col("lsoa_code"), pl.col("outcome_status"))
         .with_columns(pl.lit(1).alias("_dummy_count_"))
@@ -95,12 +91,14 @@ def aggregate_by_outcome(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - orchestrates aggregate_by_category and aggregate_by_outcome, joining both onto lsoa_code."""
     cats = aggregate_by_category(lf)
     outcomes = aggregate_by_outcome(lf)
     return cats.join(outcomes, on="lsoa_code")
 
 
 def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - adds total_crimes (sum of category counts) and resolution_rate (outcomes / total_crimes)."""
     return lf.with_columns(
         pl.sum_horizontal(slt.by_name(CRIME_CATEGORIES)).alias("total_crimes")
     ).with_columns(
@@ -111,8 +109,19 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(
-    window_months, snapshot_date, persist_intermediate_file: bool = False
+    window_months, snapshot_date, persist_processed_file: bool = False
 ) -> pl.LazyFrame:
+    """Loads monthly police parquet files within the time window, filters to Bristol, aggregates by category and outcome, and derives summary stats.
+
+    Args:
+        window_months: Number of months in the time window.
+        snapshot_date: End date of the window in YYYY-MM-DD format.
+        persist_processed_file: If True, sinks the result to a parquet file before returning.
+
+    Returns:
+        LazyFrame of aggregated crime stats per Bristol LSOA.
+    """
+
     logger.info(
         "processing police data",
         window_months=window_months,
@@ -137,7 +146,7 @@ def process(
         .pipe(derive_stats)
     )
 
-    if persist_intermediate_file:
+    if persist_processed_file:
         dataframe.sink_parquet(paths.data_processed / "police_uk.parquet")
         logger.info(
             "police data written", path=str(paths.data_processed / "police_uk.parquet")
