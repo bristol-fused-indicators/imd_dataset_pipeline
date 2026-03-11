@@ -150,7 +150,6 @@ def connectivity_processed_data(
 
 @asset(
     deps=[land_registry_raw_data],
-    automation_condition=AutomationCondition.eager(),
 )
 def land_registry_processed_data(
     context: AssetExecutionContext, config: TimeframeConfig
@@ -202,7 +201,6 @@ def open_street_map_processed_data(
 
 @asset(
     deps=[crime_raw_data],
-    automation_condition=AutomationCondition.eager(),
 )
 def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     process.police_uk.process(
