@@ -26,3 +26,7 @@ data/raw/universal_credit/*.parquet
 
 
 .vscode/*
+
+.tmp_dagster_home_*
+
+.dagster_home
