@@ -50,7 +50,7 @@ def stdev_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
-        .std()
+        .agg(pl.col("price").std())
         .rename({"price": "lsoa_stdev_price"})
     )
 
