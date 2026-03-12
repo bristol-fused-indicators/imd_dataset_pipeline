@@ -171,6 +171,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         transactions_in_lsoa(lf),
         transactions_per_property_type(lf),
         proportion_of_new_builds(lf),
+        proportion_of_freehold(lf),
     ]
     for frame in all_frames:
         spine = spine.join(frame, how="left", on="lsoa_code")
