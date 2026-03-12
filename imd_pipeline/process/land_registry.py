@@ -27,13 +27,22 @@ COLUMNS = [
 ]
 
 
-def average_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
-    """Pipeable func - computes mean transaction price per LSOA as lsoa_average_price."""
+def mean_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes mean transaction price per LSOA as lsoa_mean_price."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
         .mean()
-        .rename({"price": "lsoa_average_price"})
+        .rename({"price": "lsoa_mean_price"})
+    )
+
+def median_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes median transaction price per LSOA as lsoa_median_price."""
+    return (
+        lf.select("lsoa_code", "price")
+        .group_by("lsoa_code")
+        .median()
+        .rename({"price": "lsoa_median_price"})
     )
 
 
@@ -108,7 +117,8 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     # these are broken up for neatness, and this code can be extended by writing a new agg function
     # then adding it to this list
     all_frames = [
-        average_price_by_lsoa(lf),
+        mean_price_by_lsoa(lf),
+        median_price_by_lsoa(lf),
         max_price_by_lsoa(lf),
         average_price_by_property_type(lf),
         transactions_in_lsoa(lf),
