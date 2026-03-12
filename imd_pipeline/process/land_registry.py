@@ -82,6 +82,19 @@ def range_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .rename({"price": "lsoa_range_price"})
     )
 
+def price_inequality_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes price inequality per LSOA as lsoa_price_inequality,
+    defined as p90 / p10."""
+    return (
+        lf.select("lsoa_code", "price")
+        .group_by("lsoa_code")
+        .agg([ 
+            pl.col("price").quantile(0.9).alias("p90"),
+            pl.col("price").quantile(0.1).alias("p10")])
+        .with_columns((pl.col("p90") / pl.col("p10")).alias("lsoa_price_inequality"))
+        .select(["lsoa_code", "lsoa_price_inequality"])
+    )
+
 
 def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes mean price per property type per LSOA, pivoting to columns T/F/S/D/O_mean_price."""
@@ -187,6 +200,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         max_price_by_lsoa(lf),
         min_price_by_lsoa(lf),
         range_price_by_lsoa(lf),
+        price_inequality_by_lsoa(lf),
         average_price_by_property_type(lf),
         transactions_in_lsoa(lf),
         transactions_per_property_type(lf),
