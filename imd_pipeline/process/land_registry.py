@@ -64,6 +64,15 @@ def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .rename({"price": "lsoa_max_price"})
     )
 
+def min_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes min transaction price per LSOA as lsoa_min_price."""
+    return (
+        lf.select("lsoa_code", "price")
+        .group_by("lsoa_code")
+        .min()
+        .rename({"price": "lsoa_min_price"})
+    )
+
 
 def average_price_by_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes mean price per property type per LSOA, pivoting to columns T/F/S/D/O_mean_price."""
@@ -167,6 +176,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         median_price_by_lsoa(lf),
         stdev_price_by_lsoa(lf),
         max_price_by_lsoa(lf),
+        min_price_by_lsoa(lf),
         average_price_by_property_type(lf),
         transactions_in_lsoa(lf),
         transactions_per_property_type(lf),
