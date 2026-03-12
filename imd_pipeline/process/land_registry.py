@@ -26,6 +26,7 @@ COLUMNS = [
     "record_status",
 ]
 
+PROPERTY_TYPES = {"T": "terraced", "F": "flats", "S": "semi_detached", "D": "detached", "O": "other"}
 
 def mean_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes mean transaction price per LSOA as lsoa_mean_price."""
@@ -184,10 +185,10 @@ def proportion_of_freehold(lf: pl.LazyFrame) -> pl.LazyFrame:
         .select("lsoa_code", "freehold_proportion")
     )   
 
-def proportion_of_terraced(lf: pl.LazyFrame) -> pl.LazyFrame:
+def proportion_of_property_type(lf: pl.LazyFrame, prop_type: str) -> pl.LazyFrame:
     """Pipeable func - computes proportion of transactions that are terraced per LSOA as terraced_proportion."""
     total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
-    terraced_transactions = lf.filter(pl.col("property_type") == "T").group_by("lsoa_code").len().rename({"len": "terraced_transactions"})
+    terraced_transactions = lf.filter(pl.col("property_type") == prop_type).group_by("lsoa_code").len().rename({"len": f"{PROPERTY_TYPES[prop_type]}_transactions"})
     return (
         total_transactions.join(
             terraced_transactions,
@@ -195,12 +196,12 @@ def proportion_of_terraced(lf: pl.LazyFrame) -> pl.LazyFrame:
             how="left"
         )
         .with_columns(
-            (pl.col("terraced_transactions") / pl.col("total_transactions")
+            (pl.col(f"{PROPERTY_TYPES[prop_type]}_transactions") / pl.col("total_transactions")
             )
             .fill_null(0)
-            .alias("terraced_proportion")
+            .alias(f"{PROPERTY_TYPES[prop_type]}_proportion")
         )
-        .select("lsoa_code", "terraced_proportion")
+        .select("lsoa_code", f"{PROPERTY_TYPES[prop_type]}_proportion")
     )   
 
 
@@ -226,7 +227,11 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         transactions_per_property_type(lf),
         proportion_of_new_builds(lf),
         proportion_of_freehold(lf),
-        proportion_of_terraced(lf),
+        proportion_of_property_type(lf, 'T'),
+        proportion_of_property_type(lf, 'F'),
+        proportion_of_property_type(lf, 'S'),
+        proportion_of_property_type(lf, 'D'),
+        proportion_of_property_type(lf, 'O'),
     ]
     for frame in all_frames:
         spine = spine.join(frame, how="left", on="lsoa_code")
