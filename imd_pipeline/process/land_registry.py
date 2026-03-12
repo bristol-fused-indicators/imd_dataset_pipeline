@@ -184,6 +184,26 @@ def proportion_of_freehold(lf: pl.LazyFrame) -> pl.LazyFrame:
         .select("lsoa_code", "freehold_proportion")
     )   
 
+def proportion_of_terraced(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes proportion of transactions that are terraced per LSOA as terraced_proportion."""
+    total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
+    terraced_transactions = lf.filter(pl.col("property_type") == "T").group_by("lsoa_code").len().rename({"len": "terraced_transactions"})
+    return (
+        total_transactions.join(
+            terraced_transactions,
+            on="lsoa_code",
+            how="left"
+        )
+        .with_columns(
+            (pl.col("terraced_transactions") / pl.col("total_transactions")
+            )
+            .fill_null(0)
+            .alias("terraced_proportion")
+        )
+        .select("lsoa_code", "terraced_proportion")
+    )   
+
+
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - orchestrates all LSOA aggregations by joining average_price_by_lsoa, max_price_by_lsoa, average_price_by_property_type, transactions_in_lsoa, and transactions_per_property_type onto an lsoa_code spine."""
     # the "spine" will define the primary key of the data and we will left join all the stats to it
@@ -206,6 +226,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         transactions_per_property_type(lf),
         proportion_of_new_builds(lf),
         proportion_of_freehold(lf),
+        proportion_of_terraced(lf),
     ]
     for frame in all_frames:
         spine = spine.join(frame, how="left", on="lsoa_code")
