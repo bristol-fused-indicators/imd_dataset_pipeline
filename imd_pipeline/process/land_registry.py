@@ -204,6 +204,25 @@ def proportion_of_property_type(lf: pl.LazyFrame, prop_type: str) -> pl.LazyFram
         .select("lsoa_code", f"{PROPERTY_TYPES[prop_type]}_proportion")
     )   
 
+def new_build_price_premium(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Pipeable func - computes new build price premium per LSOA as new_build_price_premium, defined as mean price of new builds / mean price of non-new builds."""
+    new_build_prices = lf.filter(pl.col("old_new") == "Y").group_by("lsoa_code").mean().rename({"price": "new_build_mean_price"})
+    non_new_build_prices = lf.filter(pl.col("old_new") == "N").group_by("lsoa_code").mean().rename({"price": "non_new_build_mean_price"})
+    return (
+        new_build_prices.join(
+            non_new_build_prices,
+            on="lsoa_code",
+            how="left"
+        )
+        .with_columns(
+            (pl.col("new_build_mean_price") / pl.col("non_new_build_mean_price")
+            )
+            .fill_null(0)
+            .alias("new_build_price_premium")
+        )
+        .select("lsoa_code", "new_build_price_premium")
+    )
+
 
 def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - orchestrates all LSOA aggregations by joining average_price_by_lsoa, max_price_by_lsoa, average_price_by_property_type, transactions_in_lsoa, and transactions_per_property_type onto an lsoa_code spine."""
@@ -232,6 +251,7 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         proportion_of_property_type(lf, 'S'),
         proportion_of_property_type(lf, 'D'),
         proportion_of_property_type(lf, 'O'),
+        new_build_price_premium(lf),
     ]
     for frame in all_frames:
         spine = spine.join(frame, how="left", on="lsoa_code")
