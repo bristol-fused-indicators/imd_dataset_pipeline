@@ -1,7 +1,42 @@
 from loguru import logger
 from project_paths import paths
+import requests
 
 from imd_pipeline.utils.http import cached_fetch_json, create_session
+
+def get_area_bbox(area_name: str = "Bristol") -> tuple[float, float, float, float]:
+    """
+    Get the bounding box of a city from Overpass API.
+
+    Returns:
+        (min_lat, min_lon, max_lat, max_lon)
+    """
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+    [out:json];
+    area["name"="{area_name}"]->.a;
+    .a->.searchArea;
+    out geom;
+    """
+    output_path = paths.data_raw / "osm" / f"{area_name}_bbox.json"
+    cached_fetch_json(
+        url=overpass_url,
+        output_path=output_path,
+        session=create_session(),
+        force_refresh=False,
+        params={"data": query},
+    )
+
+    data = requests.get(overpass_url, params={"data": query}).json()
+    lats = []
+    lons = []
+    for elem in data.get("elements", []):
+        if "geometry" in elem:
+            for node in elem["geometry"]:
+                lats.append(node["lat"])
+                lons.append(node["lon"])
+    return min(lats), min(lons), max(lats), max(lons)
+
 
 
 def fetch(force_refresh: bool = False):
