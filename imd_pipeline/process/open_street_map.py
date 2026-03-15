@@ -23,6 +23,13 @@ BUFFER_DISTANCES = [
     5000,
 ]
 
+SELECTED_NEAREST_POI = [
+    'shop', 'hospital', 'pharmacy', 'school', 'kindergarten',
+    'college', 'university', 'bank', 'atm', 'ice_cream',
+    'fast_food', 'pub', 'bar', 'nightclub', 'stripclub',
+    'gambling', 'bicycle_parking', 'cinema', 'theatre',
+    'social_facility'
+]
 
 def count_ammenities(
     feature_frame: GeoDataFrame,
@@ -342,22 +349,31 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
         index=lsoa_gdf.index,
     )
 
-    nearest_shop = find_nearest_poi(
-        feature_frame=lsoa_gdf.reset_index(),
-        point_osm_data=osm_points_gdf,
-        poi="shop",
-        distance=0,
+    nearest_poi_df = pd.DataFrame(
+        {f"nearest_{ammenity}": find_nearest_poi(
+            feature_frame=lsoa_gdf.reset_index(),
+            point_osm_data=osm_points_gdf,
+            poi=f"{ammenity}",
+            distance=0,
+            )
+        for ammenity in SELECTED_NEAREST_POI
+        }
     )
 
-    ratio_fastfood_dining = calculate_ratio_of_elements(
-        feature_frame=lsoa_gdf.reset_index(),
-        point_osm_data=osm_points_gdf,
-        element_groups=(
-            amenity_groups.get("fast_food_takeaway", []),
-            amenity_groups.get("food_dining", []),
-        ),
-        distance=1000,
-        name="ratio_fastfood_to_dining_1000",
+    with open(paths.data_config / "ratio_pairs.json", "r") as f:
+        ratio_pairs: dict = json.load(f)
+    
+    ratio_poi_df = pd.DataFrame(
+        {f"ratio_{ratio_pairs[item]['numerator']}_to_{ratio_pairs[item]['denominator']}_{distance}":
+        calculate_ratio_of_elements(
+            feature_frame=lsoa_gdf.reset_index(),
+            point_osm_data=osm_points_gdf,
+            element_groups=(
+                amenity_groups.get(ratio_pairs[item]['numerator'], []),
+                amenity_groups.get(ratio_pairs[item]['denominator'], []),
+            ),
+            distance=distance
+        ) for item in ratio_pairs.keys() for distance in [500, 1000, 2000]}
     )
 
     landuse_shares = find_landuse_share(
@@ -386,8 +402,8 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
         [
             lsoa_gdf,
             count_ammenities_df,
-            nearest_shop,
-            ratio_fastfood_dining,
+            nearest_poi_df,
+            ratio_poi_df,
             landuse_df,
             lit_pct,
         ],
