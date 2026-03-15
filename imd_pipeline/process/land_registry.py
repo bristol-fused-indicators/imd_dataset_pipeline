@@ -188,10 +188,10 @@ def proportion_of_freehold(lf: pl.LazyFrame) -> pl.LazyFrame:
 def proportion_of_property_type(lf: pl.LazyFrame, prop_type: str) -> pl.LazyFrame:
     """Pipeable func - computes proportion of transactions for a porperty type per LSOA as {proporty type}_proportion."""
     total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
-    terraced_transactions = lf.filter(pl.col("property_type") == prop_type).group_by("lsoa_code").len().rename({"len": f"{PROPERTY_TYPES[prop_type]}_transactions"})
+    type_transactions = lf.filter(pl.col("property_type") == prop_type).group_by("lsoa_code").len().rename({"len": f"{PROPERTY_TYPES[prop_type]}_transactions"})
     return (
         total_transactions.join(
-            terraced_transactions,
+            type_transactions,
             on="lsoa_code",
             how="left"
         )
