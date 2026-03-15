@@ -56,7 +56,7 @@ def expand_bbox(bbox: tuple[float, float, float, float], buffer_m: float = 5000)
         max_lon + buffer_deg,
     )
 
-def fetch(force_refresh: bool = False, buffer_m: float = 5000):
+def fetch(force_refresh: bool = False, buffer_m: float = 5000, snapshot_date: str | None = None):
     """Fetches Bristol OSM data from the Overpass API using cached_fetch_json,
     which skips the download if the file already exists.
 
@@ -65,32 +65,43 @@ def fetch(force_refresh: bool = False, buffer_m: float = 5000):
     Args:
         force_refresh: If True, re-fetch even if the file exists.
         buffer_m: Buffer in meters to expand the bounding box around Bristol.
+        snapshot_date: optional historical snapshot
+            format: 'YYYY-MM-DD'
 
     Returns:
         Path to the saved JSON response.
     """
 
     logger.info(
-        "fetching open street map data from overpass api", force_refresh=force_refresh
+        "fetching open street map data from overpass api",
+        snapshot_date=snapshot_date,
     )
-
-    output_path = paths.data_raw / "osm" / "overpass_response.json"
 
     min_lat, min_lon, max_lat, max_lon = expand_bbox(get_area_bbox(), buffer_m)
 
+    if snapshot_date:
+        timestamp = f'{snapshot_date}T00:00:00Z'
+        date_clause = f'[date:"{timestamp}"]'
+        filename = f"overpass_response_{snapshot_date}.json"
+    else:
+        date_clause = ""
+        filename = "overpass_response_latest.json"
+
+    output_path = paths.data_raw / "osm" / filename
+
     overpass_url = "https://overpass-api.de/api/interpreter"
-    bristol_data_query = f"""
-[out:json];
-area["ISO3166-2"="GB-BST"]->.bristol;
+
+    query = f"""
+[out:json]{date_clause};
 (
-        node["amenity"]({min_lat},{min_lon},{max_lat},{max_lon});
-        way["amenity"]({min_lat},{min_lon},{max_lat},{max_lon});
-        node["shop"]({min_lat},{min_lon},{max_lat},{max_lon});
-        way["shop"]({min_lat},{min_lon},{max_lat},{max_lon});
-        node["landuse"]({min_lat},{min_lon},{max_lat},{max_lon});
-        way["landuse"]({min_lat},{min_lon},{max_lat},{max_lon});
-        node["highway"]({min_lat},{min_lon},{max_lat},{max_lon});
-        way["highway"]({min_lat},{min_lon},{max_lat},{max_lon});
+    node["amenity"]({min_lat},{min_lon},{max_lat},{max_lon});
+    way["amenity"]({min_lat},{min_lon},{max_lat},{max_lon});
+    node["shop"]({min_lat},{min_lon},{max_lat},{max_lon});
+    way["shop"]({min_lat},{min_lon},{max_lat},{max_lon});
+    node["landuse"]({min_lat},{min_lon},{max_lat},{max_lon});
+    way["landuse"]({min_lat},{min_lon},{max_lat},{max_lon});
+    node["highway"]({min_lat},{min_lon},{max_lat},{max_lon});
+    way["highway"]({min_lat},{min_lon},{max_lat},{max_lon});
 );
 out geom;
 """
@@ -100,11 +111,11 @@ out geom;
         output_path=output_path,
         session=create_session(),
         force_refresh=force_refresh,
-        params={"data": bristol_data_query},
+        params={"data": query},
     )
 
-    logger.info("open street map data saved", path=output_path)
+    logger.info("open street map data saved", path=response_path)
 
 
 if __name__ == "__main__":
-    fetch()
+    fetch(snapshot_date="2024-01-01")
