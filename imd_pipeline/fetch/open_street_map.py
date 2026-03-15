@@ -85,7 +85,7 @@ def fetch(force_refresh: bool = False, buffer_m: float = 5000, snapshot_date: st
         filename = f"overpass_response_{snapshot_date}.json"
     else:
         date_clause = ""
-        filename = "overpass_response_latest.json"
+        filename = "overpass_response.json"
 
     output_path = paths.data_raw / "osm" / filename
 
@@ -118,4 +118,4 @@ out geom;
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2024-01-01")
+    fetch()
