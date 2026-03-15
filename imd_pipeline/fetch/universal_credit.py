@@ -7,8 +7,7 @@ import polars as pl
 from dotenv import load_dotenv
 from loguru import logger
 from project_paths import paths
-from statxplore import http_session, objects
-
+from imd_pipeline.utils.http import create_session, cached_fetch_json
 from imd_pipeline.utils.timeframes import months_in_window
 
 load_dotenv()
@@ -32,6 +31,7 @@ CONDITION_RECODE_KEY = (
     "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
 )
 QUERY_CONDITION_STEM = "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME"
+STATXPLORE_URL = "https://stat-xplore.dwp.gov.uk/webapi/rest/v1/table"
 
 
 def construct_queries(
@@ -73,15 +73,29 @@ def get_queries(
     }
 
 
-def get_data(query: dict, session, output_path: Path, force_refresh=False) -> dict:
+def get_data(query: dict, output_path: Path, api_key: str, force_refresh=False) -> dict:
+    """Fetch UC data from StatsExplore API, with caching to avoid redundant downloads."""
+    
     if output_path.exists() and not force_refresh:
         logger.debug("reading cached file", path=output_path)
         return json.loads(output_path.read_text(encoding="utf-8"))
-
-    logger.info("querying statxplore...")
-
-    data = objects.Table.query_json(session, json.dumps(query))
-    output_path.write_text(data=json.dumps(data), encoding="utf-8")
+    
+    logger.info("querying statxplore...", path=output_path)
+    
+    session = create_session()
+    headers = {
+        "APIKey": api_key,
+        "Content-Type": "application/json"
+    }
+    
+    response = session.post(STATXPLORE_URL, headers=headers, json=query)
+    response.raise_for_status()
+    data = response.json()
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(data), encoding="utf-8")
+    
+    logger.info("saved response", path=output_path)
     return data
 
 
@@ -129,16 +143,14 @@ def fetch(
     queries = get_queries(snapshot_date, window_months)
     logger.info("loaded queries", num=len(queries))
 
-    session = http_session.StatSession(api_key=os.environ.get("STATXPLORE_API_KEY", ""))
-    logger.info("created statxplore session")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     responses = {
         name: get_data(
             query=query,
-            session=session,
             output_path=paths.data_raw / f"{name}.json",
+            api_key=os.environ.get("STATXPLORE_API_KEY", ""),
             force_refresh=force_refresh,
         )
         for name, query in queries.items()
