@@ -6,7 +6,8 @@ from project_paths import paths
 
 from imd_pipeline.utils.http import create_session
 
-OUTPUT_DIR = paths.data_raw / "connectivity"
+output_path = paths.data_raw / "connectivity" / "connectivity.parquet"
+url = "https://assets.publishing.service.gov.uk/media/68c966fc07d9e92bc5517b80/connectivity_metrics_2025.ods"
 
 def fetch(force_refresh: bool = False):
     """Downloads connectivity metrics data and saves it to parquet, skipping if already downloaded.
@@ -18,12 +19,12 @@ def fetch(force_refresh: bool = False):
         This can take up to 30 minutes due to conversion of a large ODS file.
     """
 
-    output_path = OUTPUT_DIR / "connectivity.parquet"
     if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    url = "https://assets.publishing.service.gov.uk/media/68c966fc07d9e92bc5517b80/connectivity_metrics_2025.ods"
     session = create_session()
     logger.info("downloading connectivity data", url=url)
     r = session.get(url)
