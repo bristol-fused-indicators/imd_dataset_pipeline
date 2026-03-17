@@ -296,6 +296,11 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
         map_elements=map_elements
     )
 
+    # proposed fix: convert polygons to centroids for the counting function later
+    polygon_centroids = osm_polygons_gdf.copy()
+    polygon_centroids["geometry"] = polygon_centroids.geometry.centroid
+    all_pois = pd.concat([osm_points_gdf, polygon_centroids], ignore_index=True)
+
     with open(paths.data_config / "amenity_groups.json", "r") as f:
         amenity_groups: dict = json.load(f)
 
