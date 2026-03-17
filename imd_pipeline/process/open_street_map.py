@@ -283,11 +283,15 @@ def get_polygon(x) -> Polygon:
     return Polygon(json.loads(x).get("coordinates")[0][0])
 
 
-def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+def process(persist_processed_file: bool = False, snapshot_date: str | None = None) -> pl.LazyFrame:
 
     logger.info("setting up open street map processing...")
 
-    response_file = paths.data_raw / "osm" / "overpass_response.json"
+    if snapshot_date:
+        response_file = paths.data_raw / "osm" / f"overpass_response_{snapshot_date}.json"
+    else:
+        response_file = paths.data_raw / "osm" / "overpass_response.json"
+
     with open(response_file) as file:
         data = json.load(file)
     map_elements = data.get("elements")
