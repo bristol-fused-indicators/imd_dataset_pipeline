@@ -215,12 +215,5 @@ def fetch(
         f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
     )
 
-    session = create_session()
-    month_paths = []
-    for month in months:
-        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
-        month_paths.append(path)
-
-
 if __name__ == "__main__":
     fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True)
