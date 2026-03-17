@@ -23,6 +23,7 @@ data/raw/osm/*.json
 data/raw/lookup/*.parquet
 data/lookup/*.csv
 data/raw/universal_credit/*.parquet
+data/raw/connectivity/*.parquet
 
 
 .vscode/*
