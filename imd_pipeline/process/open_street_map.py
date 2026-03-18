@@ -300,6 +300,9 @@ def process(persist_processed_file: bool = False, snapshot_date: str | None = No
         map_elements=map_elements
     )
 
+
+
+
     with open(paths.data_config / "amenity_groups.json", "r") as f:
         amenity_groups: dict = json.load(f)
 
@@ -341,7 +344,7 @@ def process(persist_processed_file: bool = False, snapshot_date: str | None = No
         {
             f"count_{group_name}_{buffer_distance}": count_ammenities(
                 feature_frame=lsoa_gdf.reset_index(),
-                point_osm_data=osm_points_gdf,
+                point_osm_data=pd.concat([osm_points_gdf, osm_polygons_gdf]),
                 ammenities=group,
                 distance=buffer_distance,
             )
