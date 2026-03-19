@@ -17,6 +17,7 @@ from imd_pipeline.utils.http import create_session
 from imd_pipeline.utils.timeframes import months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
+ARCHIVE_URL = "https://data.police.uk/data/archive/"  
 OUTPUT_DIR = paths.data_raw / "police_uk"
 MAX_MONTHS = 36
 
@@ -228,49 +229,14 @@ def fetch_api(
 
 
 
+
+
 def fetch_bulk_csv(
     snapshot_date: str,
     window_months: int,
     force_refresh: bool = False,
 ):
-    """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
-
-    A start date and number of months must be set. Validates that the range
-    does not exceed the API's 36-month limit. Calls load_lsoa_polygons and fetch_month
-    for each month, then writes a consolidated all_crimes.parquet.
-
-    Args:
-        snapshot_date: a date (yyyy-mm-dd) that is the reference for creating the snapshot of data
-        window_months: how many months of data should be fetched, back from the snapshot date
-        force_refresh: If True, refetch all months even if files exist.
-
-    Returns:
-        Path to the consolidated parquet file.
-
-    Raises:
-        ValueError: If the year range exceeds 36 months
-    """
-
-    if window_months > MAX_MONTHS:
-        raise ValueError(
-            f"Date range spans {window_months} months, "
-            f"but the Police UK API only serves the most recent {MAX_MONTHS} months. "
-            f"Reduce the range or use bulk CSV downloads from data.police.uk for historical data."
-        )
-
-    lookup_path = paths.data_lookup / "geography_lookup.csv"
-    lsoa_polys = load_lsoa_polygons(lookup_path)
-    months = months_in_window(snapshot_date=snapshot_date, window_months=window_months)
-    logger.info(
-        f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
-    )
-
-    session = create_session()
-    month_paths = []
-    for month in months:
-        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
-        month_paths.append(path)
-
+    pass
 
 
 
@@ -286,63 +252,80 @@ def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
 
 
     if oldest_date_to_fetch >= api_date_limit:
+
         # fetch soley with api
         #fetch_api(snapshot_date, window_months, force_refresh)
         pass
     
     elif newest_date_to_fetch >= api_date_limit:
 
+        # fetch as a mixture of api and bulk download
         delta = relativedelta(newest_date_to_fetch, api_date_limit)
         api_window = delta.years * 12 + delta.months
+        bulk_window = window_months - api_window
+
         print('api_window:', api_window)
 
-        # fetch as a mixture of api and bulk download
-        pass
+        #fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh)
+        #fetch_bulk_csv(snapshot_date=api_date_limit, window_months=bulk_window, force_refresh)
 
     else:
+
         # fetch soley from bulk download
         #fetch_bulk_csv(snapshot_date, window_months, force_refresh)
         pass
 
 
+#response = requests.get(ARCHIVE_URL)
+#soup = bs(response.text, "html.parser")
+#
+#items = soup.find_all("div", class_="download")
+#print(items)
+#for item in items:
+#    text = item.get_text(strip=True)
+#    print(text)
 
 
-#
-#BASE_URL = "https://data.police.uk/data/archive/"  # page with links
-#
-#def get_csv_link(target_date: str):
-#    
-#    
-#    response = requests.get(BASE_URL)
-#    soup = bs(response.text, "html.parser")
-#    
-#    # Find all links
-#    links = soup.find_all("a", href=True)
-#    
-#    for link in links:
-#        href = link["href"]
-#        text = link.get_text()
-#
-#        
-#        # Adjust this condition based on how the date appears
-#        if target_date in href or target_date in text:
-#            if href.endswith(".zip"):
-#                return href
-#    
-#    return None
-#
-#relative_path = get_csv_link("2024-01")
-#full_url = urljoin(BASE_URL, relative_path)
-#
-#response = requests.get(full_url)
-#
-#with open("2024-01.zip", "wb") as f:
-#    f.write(response.content)
-#
+
+def parse_range(text: str):
+    text = text.lower().replace("contains data from ", "").strip()
+    start_str, end_str = text.split(" to ")
+    
+    start_dt = datetime.strptime(start_str, "%b %Y")
+    end_dt = datetime.strptime(end_str, "%b %Y")
+    
+    return start_dt, end_dt
 
 
+def build_dataset_index(url: str):
+    response = requests.get(url)
+    soup = bs(response.text, "html.parser")
+    
+    dataset_index = {}
+    
+    for p in soup.find_all("p", class_="contained-range"):
+        range_text = p.get_text(strip=True)
+        start_dt, end_dt = parse_range(range_text)
+        
+        parent = p.find_parent()
+        link = parent.find("a", href=True)
+        
+        if link:
+            end_key = end_dt.strftime("%Y-%m")
+            
+            dataset_index[end_key] = {
+                "start": start_dt.strftime("%Y-%m"),
+                "url": link["href"]
+            }
+    
+    return dataset_index
+
+
+dataset = build_dataset_index(ARCHIVE_URL)
+for key in dataset.keys():
+    print(dataset[key])
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2025-12-01", window_months=70, force_refresh=True)
+    #fetch(snapshot_date="2025-12-01", window_months=70, force_refresh=True)
     pass
