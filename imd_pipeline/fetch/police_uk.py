@@ -228,57 +228,83 @@ def fetch_api(
 
 
 
+def fetch_bulk_csv(
+    snapshot_date: str,
+    window_months: int,
+    force_refresh: bool = False,
+):
+    """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
 
-def get_bulk_download_range(snapshot_date: str, window_months: int) -> tuple[str, str] | None:
+    A start date and number of months must be set. Validates that the range
+    does not exceed the API's 36-month limit. Calls load_lsoa_polygons and fetch_month
+    for each month, then writes a consolidated all_crimes.parquet.
+
+    Args:
+        snapshot_date: a date (yyyy-mm-dd) that is the reference for creating the snapshot of data
+        window_months: how many months of data should be fetched, back from the snapshot date
+        force_refresh: If True, refetch all months even if files exist.
+
+    Returns:
+        Path to the consolidated parquet file.
+
+    Raises:
+        ValueError: If the year range exceeds 36 months
     """
-    Returns the range of months that need bulk download (older than 36 months from today).
-    - snapshot_date: the latest date you want to fetch (YYYY-MM-DD)
-    - window_months: how far back you want
-    Returns (start_month, end_month) in 'YYYY-MM' format, or None if API covers it all.
-    """
-    snapshot_dt = datetime.strptime(snapshot_date, "%Y-%m-%d")
-    
-    # Oldest month in the requested window
-    oldest_dt = snapshot_dt - relativedelta(months=window_months)
-    
-    # 36 months cutoff (API limit)
-    cutoff_dt = datetime.today() - relativedelta(months=36)
-    
-    # If oldest_dt is newer than cutoff → API can handle everything
-    if oldest_dt >= cutoff_dt:
-        return None
-    
-    # Otherwise, return range of months older than 36 months
-    # Start = oldest date in window
-    # End = latest date older than cutoff
-    end_dt = min(snapshot_dt, cutoff_dt)
-    
-    return (end_dt.strftime("%Y-%m"), oldest_dt.strftime("%Y-%m"))
+
+    if window_months > MAX_MONTHS:
+        raise ValueError(
+            f"Date range spans {window_months} months, "
+            f"but the Police UK API only serves the most recent {MAX_MONTHS} months. "
+            f"Reduce the range or use bulk CSV downloads from data.police.uk for historical data."
+        )
+
+    lookup_path = paths.data_lookup / "geography_lookup.csv"
+    lsoa_polys = load_lsoa_polygons(lookup_path)
+    months = months_in_window(snapshot_date=snapshot_date, window_months=window_months)
+    logger.info(
+        f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
+    )
+
+    session = create_session()
+    month_paths = []
+    for month in months:
+        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
+        month_paths.append(path)
+
 
 
 
 def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
 
-    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d")
-    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).date()
+    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date()
+    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months))
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
 
-    print(oldest_date_to_fetch)
-    print(api_date_limit)
+    print('newest date to fetch:',newest_date_to_fetch)      
+    print('oldest date to fetch:',oldest_date_to_fetch)
+    print('api date limit:',api_date_limit)
 
 
     if oldest_date_to_fetch >= api_date_limit:
-        pass
         # fetch soley with api
-    else:
-        if newest_date_to_fetch >= api_date_limit:
-            pass
-            # fetch as a mixture of api and bulk download
-        else:
-            pass
-            # fetch soley from bulk download
+        #fetch_api(snapshot_date, window_months, force_refresh)
+        pass
+    
+    elif newest_date_to_fetch >= api_date_limit:
 
-    return None
+        delta = relativedelta(newest_date_to_fetch, api_date_limit)
+        api_window = delta.years * 12 + delta.months
+        print('api_window:', api_window)
+
+        # fetch as a mixture of api and bulk download
+        pass
+
+    else:
+        # fetch soley from bulk download
+        #fetch_bulk_csv(snapshot_date, window_months, force_refresh)
+        pass
+
+
 
 
 #
@@ -318,4 +344,5 @@ def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True)
+    fetch(snapshot_date="2025-12-01", window_months=70, force_refresh=True)
+    pass
