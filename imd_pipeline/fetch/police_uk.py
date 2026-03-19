@@ -7,6 +7,11 @@ from loguru import logger
 from project_paths import paths
 from ratelimit import limits
 from shapely.geometry import Polygon, shape
+from bs4 import BeautifulSoup as bs
+from urllib.parse import urljoin
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 from imd_pipeline.utils.http import create_session
 from imd_pipeline.utils.timeframes import months_in_window
@@ -178,7 +183,7 @@ def fetch_month(
     return month_path
 
 
-def fetch(
+def fetch_api(
     snapshot_date: str,
     window_months: int,
     force_refresh: bool = False,
@@ -220,6 +225,96 @@ def fetch(
     for month in months:
         path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
         month_paths.append(path)
+
+
+
+
+def get_bulk_download_range(snapshot_date: str, window_months: int) -> tuple[str, str] | None:
+    """
+    Returns the range of months that need bulk download (older than 36 months from today).
+    - snapshot_date: the latest date you want to fetch (YYYY-MM-DD)
+    - window_months: how far back you want
+    Returns (start_month, end_month) in 'YYYY-MM' format, or None if API covers it all.
+    """
+    snapshot_dt = datetime.strptime(snapshot_date, "%Y-%m-%d")
+    
+    # Oldest month in the requested window
+    oldest_dt = snapshot_dt - relativedelta(months=window_months)
+    
+    # 36 months cutoff (API limit)
+    cutoff_dt = datetime.today() - relativedelta(months=36)
+    
+    # If oldest_dt is newer than cutoff → API can handle everything
+    if oldest_dt >= cutoff_dt:
+        return None
+    
+    # Otherwise, return range of months older than 36 months
+    # Start = oldest date in window
+    # End = latest date older than cutoff
+    end_dt = min(snapshot_dt, cutoff_dt)
+    
+    return (end_dt.strftime("%Y-%m"), oldest_dt.strftime("%Y-%m"))
+
+
+
+def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
+
+    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d")
+    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).date()
+    api_date_limit = (datetime.today() - relativedelta(months=36)).date()
+
+    print(oldest_date_to_fetch)
+    print(api_date_limit)
+
+
+    if oldest_date_to_fetch >= api_date_limit:
+        pass
+        # fetch soley with api
+    else:
+        if newest_date_to_fetch >= api_date_limit:
+            pass
+            # fetch as a mixture of api and bulk download
+        else:
+            pass
+            # fetch soley from bulk download
+
+    return None
+
+
+#
+#BASE_URL = "https://data.police.uk/data/archive/"  # page with links
+#
+#def get_csv_link(target_date: str):
+#    
+#    
+#    response = requests.get(BASE_URL)
+#    soup = bs(response.text, "html.parser")
+#    
+#    # Find all links
+#    links = soup.find_all("a", href=True)
+#    
+#    for link in links:
+#        href = link["href"]
+#        text = link.get_text()
+#
+#        
+#        # Adjust this condition based on how the date appears
+#        if target_date in href or target_date in text:
+#            if href.endswith(".zip"):
+#                return href
+#    
+#    return None
+#
+#relative_path = get_csv_link("2024-01")
+#full_url = urljoin(BASE_URL, relative_path)
+#
+#response = requests.get(full_url)
+#
+#with open("2024-01.zip", "wb") as f:
+#    f.write(response.content)
+#
+
+
 
 
 if __name__ == "__main__":
