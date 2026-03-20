@@ -228,22 +228,73 @@ def fetch_api(
         month_paths.append(path)
 
 
+def parse_range(text: str):
+    text = text.lower().replace("contains data from ", "").strip()
+    start_str, end_str = text.split(" to ")
+    
+    start_dt = datetime.strptime(start_str, "%b %Y").date()
+    end_dt = datetime.strptime(end_str, "%b %Y").date()
+    
+    return start_dt, end_dt
 
 
+def build_dataset_index(url: str):
+    response = requests.get(url)
+    soup = bs(response.text, "html.parser")
+    dataset_index = {}
+    
+    for p in soup.find_all("p", class_="contained-range"):
+        range_text = p.get_text(strip=True)
+        start_dt, end_dt = parse_range(range_text)
+        
+        parent = p.find_parent()
+        link = parent.find("a", href=True)
+        
+        if link:
+            dataset_index[end_dt] = {
+                "start_dt": start_dt,
+                "url": link["href"]
+            }
+    
+    return dataset_index
 
-def fetch_bulk_csv(
-    snapshot_date: str,
-    window_months: int,
+def fetch_download_urls(
+    newest_date: str,
+    oldest_date: int,
     force_refresh: bool = False,
 ):
-    pass
 
+    dataset_index = build_dataset_index(ARCHIVE_URL)
+    links_to_fetch = []
+    newest_date_found = min(dataset_index)
+
+    while newest_date_found < newest_date:
+        for item in dataset_index.keys():
+            if dataset_index[item]['start_dt'] == oldest_date:
+                links_to_fetch.append(dataset_index[item]['url'])
+                newest_date_found = item
+                oldest_date = item + relativedelta(months=1)
+        if newest_date_found == min(dataset_index):
+            break 
+        print(links_to_fetch)
+    return links_to_fetch
+
+
+import time
+
+def fetch_bulk_csv(
+    newest_date: str,
+    oldest_date: int,
+    force_refresh: bool = False,
+):
+    csv_links = fetch_download_urls(newest_date,oldest_date,force_refresh)
+    print(csv_links)
 
 
 def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
 
-    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date()
-    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months))
+    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
+    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
 
     print('newest date to fetch:',newest_date_to_fetch)      
@@ -270,62 +321,11 @@ def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
         #fetch_bulk_csv(snapshot_date=api_date_limit, window_months=bulk_window, force_refresh)
 
     else:
-
         # fetch soley from bulk download
-        #fetch_bulk_csv(snapshot_date, window_months, force_refresh)
+        print(fetch_bulk_csv(newest_date_to_fetch, oldest_date_to_fetch, force_refresh))
         pass
 
 
-#response = requests.get(ARCHIVE_URL)
-#soup = bs(response.text, "html.parser")
-#
-#items = soup.find_all("div", class_="download")
-#print(items)
-#for item in items:
-#    text = item.get_text(strip=True)
-#    print(text)
-
-
-
-def parse_range(text: str):
-    text = text.lower().replace("contains data from ", "").strip()
-    start_str, end_str = text.split(" to ")
-    
-    start_dt = datetime.strptime(start_str, "%b %Y")
-    end_dt = datetime.strptime(end_str, "%b %Y")
-    
-    return start_dt, end_dt
-
-
-def build_dataset_index(url: str):
-    response = requests.get(url)
-    soup = bs(response.text, "html.parser")
-    
-    dataset_index = {}
-    
-    for p in soup.find_all("p", class_="contained-range"):
-        range_text = p.get_text(strip=True)
-        start_dt, end_dt = parse_range(range_text)
-        
-        parent = p.find_parent()
-        link = parent.find("a", href=True)
-        
-        if link:
-            end_key = end_dt.strftime("%Y-%m")
-            
-            dataset_index[end_key] = {
-                "start": start_dt.strftime("%Y-%m"),
-                "url": link["href"]
-            }
-    
-    return dataset_index
-
-
-dataset = build_dataset_index(ARCHIVE_URL)
-for key in dataset.keys():
-    print(dataset[key])
-
 
 if __name__ == "__main__":
-    #fetch(snapshot_date="2025-12-01", window_months=70, force_refresh=True)
-    pass
+    fetch(snapshot_date="2022-12-01", window_months=70, force_refresh=True)
