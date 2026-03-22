@@ -242,11 +242,19 @@ def parse_range(text: str):
     return start_dt, end_dt
 
 
-def build_dataset_index(url: str):
-    response = requests.get(url)
+def build_dataset_index():
+    response = requests.get(ARCHIVE_URL)
     soup = bs(response.text, "html.parser")
     dataset_index = {}
-    '''get dictionary item containing start/end dates of datasets, plus url download links'''
+    """Scrape the police uk data archive page to find which csvs are available and the assosciated date ranges.
+
+    Args:
+        None
+
+    Returns:
+        dataset_index: dictionary with end dates as key items and then start dates and csv download extensions as a value pair. 
+        If none are found, returns an empty dictionary.
+    """
     
     for p in soup.find_all("p", class_="contained-range"):
         range_text = p.get_text(strip=True)
@@ -263,13 +271,27 @@ def build_dataset_index(url: str):
     
     return dataset_index
 
-def fetch_download_urls(
-    newest_date: str,
-    oldest_date: int,
-    force_refresh: bool = False,
-):
-    '''Get specific links for downloads'''
-    dataset_index = build_dataset_index(ARCHIVE_URL)
+
+def fetch_url_from_dates(
+    newest_date: datetime,
+    oldest_date: datetime,
+) -> list[str]:
+    """
+    Find the specific download links needed to fulfill the respective given data range.
+
+    This is done by using the dictionary structure containing date ranges and download links to find the best matches of csv files
+    to cover the given start and end dates.
+
+    Args:
+        newest_date: The most recent requested date
+        oldest_date: The oldes requested date
+
+    Returns:
+        links_to_fetch: A list containing the download urls needed for fetching the relevant csv files.
+
+    """
+
+    dataset_index = build_dataset_index()
     links_to_fetch = []
     newest_date_found = min(dataset_index)
 
@@ -285,22 +307,24 @@ def fetch_download_urls(
             break 
     return links_to_fetch
 
-def extract_avon_street_outcomes(url: str, download_path: str):
-
-    zip_path = download_path / 'temp.zip'
-    
-    # Download ZIP
-    with requests.get(url, stream=True) as r:
+def download_zip_files(download_url: str, zip_download_path: Path):
+    """Given a download url, fetch the respective zip file to teh specified download path"""
+    with requests.get(download_url, stream=True) as r:
         r.raise_for_status()
-        with open(zip_path, "wb") as f:
+        with open(zip_download_path, "wb") as f:
             for chunk in r.iter_content(8192):
                 f.write(chunk)
-    
+
+
+def produce_monthly_outputs(zip_path: Path):
+
+    # TODO: clean up this function, not particurlalry readable 
+
+    # Get paths to reqauired files
     with zipfile.ZipFile(zip_path, "r") as z:
         
         monthly_files = defaultdict(dict)
         
-        # Identify relevant files
         for file in z.namelist():
             if "avon-and-somerset" in file and file.endswith(".csv"):
                 month = file.split("/")[0]
@@ -309,29 +333,23 @@ def extract_avon_street_outcomes(url: str, download_path: str):
                     monthly_files[month]["street"] = file
                 elif "outcomes" in file:
                     monthly_files[month]["outcomes"] = file
-        
-        # Process each month
+
         for month, files in monthly_files.items():
             
             if "street" not in files:
-                continue  # can't do anything without base
+                continue  
             
-            # Load street data (base)
             with z.open(files["street"]) as f:
                 street_df = pl.read_csv(f)
             
-            # Clean
             street_df = street_df.drop_nulls(subset="Crime ID")
 
-            
-            # Merge outcomes if available
             if "outcomes" in files:
                 with z.open(files["outcomes"]) as f:
                     outcomes_df = pl.read_csv(f)
                 
                 outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
 
-                
                 merged = street_df.join(
                     outcomes_df,
                     on="Crime ID",
@@ -343,24 +361,36 @@ def extract_avon_street_outcomes(url: str, download_path: str):
             merged = merged.with_columns(
                 pl.lit(month).alias("month"))
 
-            # save semi-;rocessed data
-            output_path = download_path / f"{month}.parquet"            
-            merged.select(['month','Crime type', 'LSOA code', 'Outcome type']).write_parquet(output_path)
+           
+            merged.select(['month','Crime type', 'LSOA code', 'Outcome type']).write_parquet(OUTPUT_DIR / f"{month}.parque")
     
-    # Remove large zip file?
-    os.remove(zip_path)
 
 def fetch_bulk_csv(
     newest_date: str,
     oldest_date: int,
     force_refresh: bool = False,
 ):
-    csv_links = fetch_download_urls(newest_date,oldest_date,force_refresh)
-    for url in csv_links:
-        extract_avon_street_outcomes(url=url, download_path=OUTPUT_DIR)
 
 
-def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
+    # TODO: Add logic to recognise if files already downloaded, add relevance to force_refresh
+
+    zip_path = OUTPUT_DIR / 'temp.zip'
+
+    csv_urls = fetch_url_from_dates(newest_date,oldest_date)
+    for csv_url in csv_urls:
+
+        download_zip_files(csv_url, zip_path)
+        produce_monthly_outputs(zip_path)
+
+        # Remove large zip file?
+        os.remove(zip_path)
+
+
+def fetch(
+    snapshot_date="2025-12-01",
+    window_months=12,
+    force_refresh=True
+):
 
     newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
     oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
@@ -370,31 +400,25 @@ def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
     print('oldest date to fetch:',oldest_date_to_fetch)
     print('api date limit:',api_date_limit)
 
-
+    # date range covered by api 
     if oldest_date_to_fetch >= api_date_limit:
-
-        # fetch soley with api
-        #fetch_api(snapshot_date, window_months, force_refresh)
-        pass
+        fetch_api(snapshot_date, window_months, force_refresh)
     
+    # date range only partially covered by api
     elif newest_date_to_fetch >= api_date_limit:
 
         # fetch as a mixture of api and bulk download
         delta = relativedelta(newest_date_to_fetch, api_date_limit)
         api_window = delta.years * 12 + delta.months
-        bulk_window = window_months - api_window
 
-        print('api_window:', api_window)
+        fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
+        fetch_bulk_csv(newest_date=api_date_limit, oldest_date=oldest_date_to_fetch, force_refresh=force_refresh)
 
-        #fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh)
-        #fetch_bulk_csv(snapshot_date=api_date_limit, window_months=bulk_window, force_refresh)
-
+    # date range not covered by api
     else:
-        # fetch soley from bulk download
-        print(fetch_bulk_csv(newest_date_to_fetch, oldest_date_to_fetch, force_refresh))
-        pass
+        fetch_bulk_csv(newest_date_to_fetch, oldest_date_to_fetch, force_refresh)
 
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2022-12-01", window_months=70, force_refresh=True)
+    fetch(snapshot_date="2023-06-01", window_months=70, force_refresh=False)
