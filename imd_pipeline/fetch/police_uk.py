@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import os
+import zipfile
 import polars as pl
 import requests
 from loguru import logger
@@ -9,6 +11,7 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 from bs4 import BeautifulSoup as bs
 from urllib.parse import urljoin
+from collections import defaultdict
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -229,6 +232,7 @@ def fetch_api(
 
 
 def parse_range(text: str):
+    '''format and process date ranges'''
     text = text.lower().replace("contains data from ", "").strip()
     start_str, end_str = text.split(" to ")
     
@@ -242,6 +246,7 @@ def build_dataset_index(url: str):
     response = requests.get(url)
     soup = bs(response.text, "html.parser")
     dataset_index = {}
+    '''get dictionary item containing start/end dates of datasets, plus url download links'''
     
     for p in soup.find_all("p", class_="contained-range"):
         range_text = p.get_text(strip=True)
@@ -263,24 +268,87 @@ def fetch_download_urls(
     oldest_date: int,
     force_refresh: bool = False,
 ):
-
+    '''Get specific links for downloads'''
     dataset_index = build_dataset_index(ARCHIVE_URL)
     links_to_fetch = []
     newest_date_found = min(dataset_index)
 
+    # TODO re-do this function without nested loop
+
     while newest_date_found < newest_date:
         for item in dataset_index.keys():
             if dataset_index[item]['start_dt'] == oldest_date:
-                links_to_fetch.append(dataset_index[item]['url'])
+                links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
                 newest_date_found = item
                 oldest_date = item + relativedelta(months=1)
         if newest_date_found == min(dataset_index):
             break 
-        print(links_to_fetch)
     return links_to_fetch
 
+def extract_avon_street_outcomes(url: str, download_path: str):
 
-import time
+    zip_path = download_path / 'temp.zip'
+    
+    # Download ZIP
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(zip_path, "wb") as f:
+            for chunk in r.iter_content(8192):
+                f.write(chunk)
+    
+    with zipfile.ZipFile(zip_path, "r") as z:
+        
+        monthly_files = defaultdict(dict)
+        
+        # Identify relevant files
+        for file in z.namelist():
+            if "avon-and-somerset" in file and file.endswith(".csv"):
+                month = file.split("/")[0]
+                
+                if "street" in file:
+                    monthly_files[month]["street"] = file
+                elif "outcomes" in file:
+                    monthly_files[month]["outcomes"] = file
+        
+        # Process each month
+        for month, files in monthly_files.items():
+            
+            if "street" not in files:
+                continue  # can't do anything without base
+            
+            # Load street data (base)
+            with z.open(files["street"]) as f:
+                street_df = pl.read_csv(f)
+            
+            # Clean
+            street_df = street_df.drop_nulls(subset="Crime ID")
+
+            
+            # Merge outcomes if available
+            if "outcomes" in files:
+                with z.open(files["outcomes"]) as f:
+                    outcomes_df = pl.read_csv(f)
+                
+                outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
+
+                
+                merged = street_df.join(
+                    outcomes_df,
+                    on="Crime ID",
+                    how="left"
+                )
+            else:
+                merged = street_df
+            
+            merged = merged.with_columns(
+                pl.lit(month).alias("month"))
+
+            # save semi-;rocessed data
+            output_path = download_path / f"{month}.parquet"            
+            merged.select(['month','Crime type', 'LSOA code', 'Outcome type']).write_parquet(output_path)
+    
+    # Remove large zip file?
+    os.remove(zip_path)
 
 def fetch_bulk_csv(
     newest_date: str,
@@ -288,7 +356,8 @@ def fetch_bulk_csv(
     force_refresh: bool = False,
 ):
     csv_links = fetch_download_urls(newest_date,oldest_date,force_refresh)
-    print(csv_links)
+    for url in csv_links:
+        extract_avon_street_outcomes(url=url, download_path=OUTPUT_DIR)
 
 
 def fetch(snapshot_date="2025-12-01", window_months=12, force_refresh=True):
