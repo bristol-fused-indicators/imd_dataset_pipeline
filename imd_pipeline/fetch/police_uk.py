@@ -232,7 +232,7 @@ def fetch_api(
 
 
 def parse_range(text: str):
-    '''format and process date ranges'''
+    """format and process date ranges"""
     text = text.lower().replace("contains data from ", "").strip()
     start_str, end_str = text.split(" to ")
     
@@ -296,8 +296,8 @@ def fetch_url_from_dates(
     newest_date_found = min(dataset_index)
 
     for item in reversed(dataset_index.keys()):
-        if dataset_index[item]['start_dt'] == oldest_date:
-            links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
+        if dataset_index[item]["start_dt"] == oldest_date:
+            links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]["url"]))
             newest_date_found = item
             oldest_date = item + relativedelta(months=1)
         if newest_date_found >= newest_date:
@@ -315,6 +315,13 @@ def download_zip_files(download_url: str, zip_download_path: Path):
 
 
 def produce_monthly_outputs(zip_path: Path):
+    """
+    Given the path to the downloaded zip-file, this function extracts and processes data from it and then saves the outputs as
+    monthly parquet files.
+
+    Args:
+        zip_path: Path to the downloaded zip-file
+    """
 
     # TODO: clean up this function, not particurlalry readable 
 
@@ -360,7 +367,7 @@ def produce_monthly_outputs(zip_path: Path):
                 pl.lit(month).alias("month"))
 
            
-            merged.select(['month','Crime type', 'LSOA code', 'Outcome type']).write_parquet(OUTPUT_DIR / f"{month}.parque")
+            merged.select(["month","Crime type", "LSOA code", "Outcome type"]).write_parquet(OUTPUT_DIR / f"{month}.parque")
     
 
 def fetch_bulk_csv(
@@ -368,19 +375,25 @@ def fetch_bulk_csv(
     oldest_date: int,
     force_refresh: bool = False,
 ):
+    """This is the main function for fetching by bulk csv download. Once the download url assosciated with the desired
+    csvs are found, loops through the list of urls for data fetching and processing. Once all processes are done, the large 
+    zip files are removed.
 
+    Args:
+        newest_date: The most recent requested date
+        oldest_date: The oldes requested date"""
 
     # TODO: Add logic to recognise if files already downloaded, add relevance to force_refresh
 
-    zip_path = OUTPUT_DIR / 'temp.zip'
+    zip_path = OUTPUT_DIR / "temp.zip"
 
     csv_urls = fetch_url_from_dates(newest_date,oldest_date)
 
     if not csv_urls:
-        logger.debug('no police uk csv files found for specified date range')
+        logger.debug("no police uk csv files found for specified date range")
 
     for csv_url in csv_urls:
-        logger.info(f'downloading data from {csv_url}')
+        logger.info(f"downloading data from {csv_url}")
         download_zip_files(csv_url, zip_path)
         produce_monthly_outputs(zip_path)
 
@@ -393,14 +406,25 @@ def fetch(
     window_months=12,
     force_refresh=True
 ):
+    """
+    Given a date and range of months, routes the fetching of data relevant to these to use the API or/and bulk csv downloads.
+    This split is due to the API being limited to just the most recent 36 months of data. For older requests, the csv files
+    found on Police UK's data archive must be used.
+
+    Args:
+        snapshot_date: a date (yyyy-mm-dd) that is the reference for creating the snapshot of data
+        window_months: how many months of data should be fetched, back from the snapshot date
+        force_refresh: If True, refetch all months even if files exist.
+
+    """
 
     newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
     oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
 
-    print('newest date to fetch:',newest_date_to_fetch)      
-    print('oldest date to fetch:',oldest_date_to_fetch)
-    print('api date limit:',api_date_limit)
+    print("newest date to fetch:",newest_date_to_fetch)      
+    print("oldest date to fetch:",oldest_date_to_fetch)
+    print("api date limit:",api_date_limit)
 
     # date range covered by api 
     if oldest_date_to_fetch >= api_date_limit:
