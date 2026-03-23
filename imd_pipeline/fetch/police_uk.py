@@ -295,41 +295,13 @@ def fetch_url_from_dates(
     links_to_fetch = []
     newest_date_found = min(dataset_index)
 
-    # TODO re-do this function without nested loop
-
-    #while newest_date_found < newest_date:
-    #    for item in dataset_index.keys():
-    #        if dataset_index[item]['start_dt'] == oldest_date:
-    #            links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
-    #            newest_date_found = item
-    #            oldest_date = item + relativedelta(months=1)
-    #    if newest_date_found == min(dataset_index):
-    #        break 
-#
-    #print(links_to_fetch)
-    #links_to_fetch = []
-#
-    #for item in reversed(dataset_index.keys()):
-    #    print(item, oldest_date)
-    #    if item <= oldest_date:
-    #        links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
-    #        if dataset_index[item]['start_dt'] >= newest_date:
-    #            break
-    #        oldest_date = dataset_index[item]['start_dt'] 
-#
-    #print(links_to_fetch)
-
-
-
     for item in reversed(dataset_index.keys()):
         if dataset_index[item]['start_dt'] == oldest_date:
-            print(oldest_date, item)
             links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
             newest_date_found = item
             oldest_date = item + relativedelta(months=1)
         if newest_date_found >= newest_date:
             break
-    print(links_to_fetch)
     
     return links_to_fetch
 
@@ -403,8 +375,12 @@ def fetch_bulk_csv(
     zip_path = OUTPUT_DIR / 'temp.zip'
 
     csv_urls = fetch_url_from_dates(newest_date,oldest_date)
-    for csv_url in csv_urls:
 
+    if not csv_urls:
+        logger.debug('no police uk csv files found for specified date range')
+
+    for csv_url in csv_urls:
+        logger.info(f'downloading data from {csv_url}')
         download_zip_files(csv_url, zip_path)
         produce_monthly_outputs(zip_path)
 
