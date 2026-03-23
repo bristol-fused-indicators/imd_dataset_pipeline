@@ -297,14 +297,40 @@ def fetch_url_from_dates(
 
     # TODO re-do this function without nested loop
 
-    while newest_date_found < newest_date:
-        for item in dataset_index.keys():
-            if dataset_index[item]['start_dt'] == oldest_date:
-                links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
-                newest_date_found = item
-                oldest_date = item + relativedelta(months=1)
-        if newest_date_found == min(dataset_index):
-            break 
+    #while newest_date_found < newest_date:
+    #    for item in dataset_index.keys():
+    #        if dataset_index[item]['start_dt'] == oldest_date:
+    #            links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
+    #            newest_date_found = item
+    #            oldest_date = item + relativedelta(months=1)
+    #    if newest_date_found == min(dataset_index):
+    #        break 
+#
+    #print(links_to_fetch)
+    #links_to_fetch = []
+#
+    #for item in reversed(dataset_index.keys()):
+    #    print(item, oldest_date)
+    #    if item <= oldest_date:
+    #        links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
+    #        if dataset_index[item]['start_dt'] >= newest_date:
+    #            break
+    #        oldest_date = dataset_index[item]['start_dt'] 
+#
+    #print(links_to_fetch)
+
+
+
+    for item in reversed(dataset_index.keys()):
+        if dataset_index[item]['start_dt'] == oldest_date:
+            print(oldest_date, item)
+            links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]['url']))
+            newest_date_found = item
+            oldest_date = item + relativedelta(months=1)
+        if newest_date_found >= newest_date:
+            break
+    print(links_to_fetch)
+    
     return links_to_fetch
 
 def download_zip_files(download_url: str, zip_download_path: Path):
@@ -407,7 +433,6 @@ def fetch(
     # date range only partially covered by api
     elif newest_date_to_fetch >= api_date_limit:
 
-        # fetch as a mixture of api and bulk download
         delta = relativedelta(newest_date_to_fetch, api_date_limit)
         api_window = delta.years * 12 + delta.months
 
@@ -421,4 +446,4 @@ def fetch(
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2023-06-01", window_months=70, force_refresh=False)
+    fetch(snapshot_date="2020-06-01", window_months=20, force_refresh=False)
