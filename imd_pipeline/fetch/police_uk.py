@@ -269,7 +269,7 @@ def build_dataset_index():
                 "url": link["href"]
             }
     
-    return dataset_index
+    return dict(sorted(dataset_index.items(), reverse=True))
 
 
 def fetch_url_from_dates(
@@ -295,7 +295,7 @@ def fetch_url_from_dates(
     links_to_fetch = []
     newest_date_found = min(dataset_index)
 
-    for item in reversed(dataset_index.keys()):
+    for item in dataset_index.keys():
         if dataset_index[item]["start_dt"] == oldest_date:
             links_to_fetch.append(urljoin(ARCHIVE_URL, dataset_index[item]["url"]))
             newest_date_found = item
@@ -371,7 +371,7 @@ def produce_monthly_outputs(zip_path: Path):
                 ["month",
                 pl.col("Crime type").alias("category"),
                 pl.col( "LSOA code").alias("lsoa_code"),
-                pl.col( "Outcome type").alias("outcome")]
+                pl.col( "Outcome type").alias("outcome_status")]
                 ).write_parquet(OUTPUT_DIR / f"{month}.parquet")
     
 
