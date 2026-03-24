@@ -367,7 +367,12 @@ def produce_monthly_outputs(zip_path: Path):
                 pl.lit(month).alias("month"))
 
            
-            merged.select(["month","Crime type", "LSOA code", "Outcome type"]).write_parquet(OUTPUT_DIR / f"{month}.parque")
+            merged.select(
+                ["month",
+                pl.col("Crime type").alias("category"),
+                pl.col( "LSOA code").alias("lsoa_code"),
+                pl.col( "Outcome type").alias("outcome")]
+                ).write_parquet(OUTPUT_DIR / f"{month}.parquet")
     
 
 def fetch_bulk_csv(
