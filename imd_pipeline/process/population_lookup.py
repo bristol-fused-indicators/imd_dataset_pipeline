@@ -52,27 +52,32 @@ def age_column_to_snake(name: str) -> str:
     return name.lower().replace(" ", "_")
 
 
-def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = False) -> pl.LazyFrame:
+
+    snapshot_year = snapshot_date[:4]
     logger.info(
         "processing population lookup data",
-        source=str(paths.data_raw / "lookup" / "population_lookup.parquet"),
-    )
-    df = (
-        pl.scan_parquet(paths.data_raw / "lookup" / "population_lookup.parquet")
-        .filter(pl.col("Local Authority") == "Bristol, City of")
-        .select(cs.contains("population") | cs.by_name("LSOA code"))
-        .rename(age_column_to_snake)
-        .with_columns(
-            pl.sum_horizontal(UNDER_15).alias("aged_under_15"),
-            pl.sum_horizontal(WORKING_AGE).alias("working_age_population"),
-            pl.sum_horizontal(PENSION_AGE).alias("pension_age_population"),
-        )
+        source=str(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet"),
     )
 
+
+    if snapshot_year == "2025":
+        df = (
+            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
+            .filter(pl.col("Local Authority") == "Bristol, City of")
+            .select(cs.contains("population") | cs.by_name("LSOA code"))
+            .rename(age_column_to_snake)
+            .with_columns(
+                pl.sum_horizontal(UNDER_15).alias("aged_under_15"),
+                pl.sum_horizontal(WORKING_AGE).alias("working_age_population"),
+                pl.sum_horizontal(PENSION_AGE).alias("pension_age_population"),
+            )
+        )
+
     if persist_processed_file:
-        df.sink_csv(paths.data_lookup / "population_lookup.csv")
+        df.sink_csv(paths.data_lookup / f"population_lookup_{snapshot_year}.csv")
     return df
 
 
 if __name__ == "__main__":
-    process()
+    process(snapshot_date="2025-12-01", persist_processed_file=True)
