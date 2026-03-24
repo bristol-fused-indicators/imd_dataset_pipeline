@@ -428,6 +428,10 @@ def fetch(
     newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
     oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
+    
+    """Note: Me (Dan B) and Dan H discussed that we are using .today() 
+    when fetching data for today, which may create a boundry effect if the source isn't updated
+    before midnight of the 1st of every month"""
 
     logger.debug(f"newest date to fetch: {newest_date_to_fetch}")      
     logger.debug(f"oldest date to fetch: {oldest_date_to_fetch}")
@@ -442,6 +446,10 @@ def fetch(
 
         delta = relativedelta(newest_date_to_fetch, api_date_limit)
         api_window = delta.years * 12 + delta.months
+
+        """Note: we are not considering using a ceiling because we have already ensured all dates are
+        changed to the 1st of the month."""
+
 
         fetch_bulk_csv(newest_date=api_date_limit, oldest_date=oldest_date_to_fetch, force_refresh=force_refresh)
         fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
