@@ -438,8 +438,7 @@ def fetch(
     # date range only partially covered by api
     elif newest_date_to_fetch >= api_date_limit:
 
-        delta = relativedelta(newest_date_to_fetch, api_date_limit)
-        api_window = delta.years * 12 + delta.months
+        api_window = abs((newest_date_to_fetch.year - api_date_limit.year)) + abs((newest_date_to_fetch.month - api_date_limit.month))
 
         fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
         fetch_bulk_csv(newest_date=api_date_limit, oldest_date=oldest_date_to_fetch, force_refresh=force_refresh)
