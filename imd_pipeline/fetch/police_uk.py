@@ -17,7 +17,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.timeframes import months_in_window
+from imd_pipeline.utils.timeframes import months_in_window, get_window_bounds
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
 ARCHIVE_URL = "https://data.police.uk/data/archive/"  
@@ -242,10 +242,7 @@ def parse_range(text: str):
     return start_dt, end_dt
 
 
-def build_dataset_index():
-    response = requests.get(ARCHIVE_URL)
-    soup = bs(response.text, "html.parser")
-    dataset_index = {}
+def build_dataset_index() -> dict:
     """Scrape the police uk data archive page to find which csvs are available and the assosciated date ranges.
 
     Args:
@@ -255,7 +252,11 @@ def build_dataset_index():
         dataset_index: dictionary with end dates as key items and then start dates and csv download extensions as a value pair. 
         If none are found, returns an empty dictionary.
     """
-    
+
+    response = requests.get(ARCHIVE_URL)
+    soup = bs(response.text, "html.parser")
+    dataset_index = {}
+
     for p in soup.find_all("p", class_="contained-range"):
         range_text = p.get_text(strip=True)
         start_dt, end_dt = parse_range(range_text)
@@ -333,7 +334,6 @@ def produce_monthly_outputs(zip_path: Path):
         for file in z.namelist():
             if "avon-and-somerset" in file and file.endswith(".csv"):
                 month = file.split("/")[0]
-                
                 if "street" in file:
                     monthly_files[month]["street"] = file
                 elif "outcomes" in file:
@@ -402,9 +402,11 @@ def fetch_bulk_csv(
         download_zip_files(csv_url, zip_path)
         produce_monthly_outputs(zip_path)
 
-        # Remove large zip file?
+    # Remove large zip file?
+    try:
         os.remove(zip_path)
-
+    except:
+        logger.error("Error in removing zip file. Script functionality unaffected, but manual removal of zip file recommended")
 
 def fetch(
     snapshot_date="2025-12-01",
@@ -427,23 +429,24 @@ def fetch(
     oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
 
-    print("newest date to fetch:",newest_date_to_fetch)      
-    print("oldest date to fetch:",oldest_date_to_fetch)
-    print("api date limit:",api_date_limit)
+    logger.debug(f"newest date to fetch: {newest_date_to_fetch}")      
+    logger.debug(f"oldest date to fetch: {oldest_date_to_fetch}")
+    logger.debug(f"api date limit: {api_date_limit}")
 
-    # date range covered by api 
+    # date range entirely covered by api 
     if oldest_date_to_fetch >= api_date_limit:
         fetch_api(snapshot_date, window_months, force_refresh)
     
     # date range only partially covered by api
     elif newest_date_to_fetch >= api_date_limit:
 
-        api_window = abs((newest_date_to_fetch.year - api_date_limit.year)) + abs((newest_date_to_fetch.month - api_date_limit.month))
+        delta = relativedelta(newest_date_to_fetch, api_date_limit)
+        api_window = delta.years * 12 + delta.months
 
-        fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
         fetch_bulk_csv(newest_date=api_date_limit, oldest_date=oldest_date_to_fetch, force_refresh=force_refresh)
+        fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
 
-    # date range not covered by api
+    # date range not covered by api, only
     else:
         fetch_bulk_csv(newest_date_to_fetch, oldest_date_to_fetch, force_refresh)
 
