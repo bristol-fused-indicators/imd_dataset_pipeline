@@ -5,7 +5,13 @@ import polars.selectors as cs
 from loguru import logger
 from project_paths import paths
 
-UNDER_15 = ["aged_0_to_4", "aged_5_to_9", "aged_10_to_14"]
+UNDER_15 = [
+    "aged_0_to_4",
+    "aged_5_to_9",
+    "aged_10_to_14",
+    "F0 to 15",
+    "M0 to 15",
+]
 
 WORKING_AGE = [
     "aged_15_to_19",
@@ -18,6 +24,12 @@ WORKING_AGE = [
     "aged_50_to_54",
     "aged_55_to_59",
     "aged_60_to_64",
+    "F16 to 29",
+    "F30 to 44",
+    "F45 to 64",
+    "M16 to 29",
+    "M30 to 44",
+    "M45 to 64",
 ]
 
 PENSION_AGE = [
@@ -26,8 +38,9 @@ PENSION_AGE = [
     "aged_75_to_79",
     "aged_80_to_84",
     "aged_85_and_over",
+    "F65 and over",
+    "M65 and over",
 ]
-
 
 def age_column_to_snake(name: str) -> str:
     """
@@ -52,6 +65,7 @@ def age_column_to_snake(name: str) -> str:
     return name.lower().replace(" ", "_")
 
 
+
 def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = False) -> pl.LazyFrame:
 
     snapshot_year = snapshot_date[:4]
@@ -67,12 +81,35 @@ def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = Fa
             .filter(pl.col("Local Authority") == "Bristol, City of")
             .select(cs.contains("population") | cs.by_name("LSOA code"))
             .rename(age_column_to_snake)
-            .with_columns(
-                pl.sum_horizontal(UNDER_15).alias("aged_under_15"),
-                pl.sum_horizontal(WORKING_AGE).alias("working_age_population"),
-                pl.sum_horizontal(PENSION_AGE).alias("pension_age_population"),
-            )
         )
+
+    elif snapshot_year == "2023" or snapshot_year == "2022":
+        df = (
+            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
+            .filter(pl.col("LAD 2023 Name") == "Bristol")
+            .select(cs.contains("to") | cs.contains("over") | cs.by_name("LSOA 2021 Code"))
+            .rename({"LSOA 2021 Code" : "lsoa_code"})
+        )
+
+    else:
+        df = (
+            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
+            .filter(pl.col("LAD 2021 Name") == "Bristol")
+            .select(cs.contains("to") | cs.contains("over") | cs.by_name("LSOA 2021 Code"))
+            .rename({"LSOA 2021 Code" : "lsoa_code"})
+        )
+
+    existing_cols = df.collect_schema().names()
+    
+    # Sum them row-wise into a new column
+    df = (
+        df.with_columns(
+            pl.sum_horizontal([c for c in UNDER_15 if c in existing_cols]).alias("aged_under_15"),
+            pl.sum_horizontal([c for c in WORKING_AGE if c in existing_cols]).alias("working_age_population"),
+            pl.sum_horizontal([c for c in PENSION_AGE if c in existing_cols]).alias("pension_age_population"))
+        .select(["lsoa_code", "aged_under_15","working_age_population","pension_age_population"])
+    )
+        
 
     if persist_processed_file:
         df.sink_csv(paths.data_lookup / f"population_lookup_{snapshot_year}.csv")
@@ -81,3 +118,9 @@ def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = Fa
 
 if __name__ == "__main__":
     process(snapshot_date="2025-12-01", persist_processed_file=True)
+    process(snapshot_date="2024-12-01", persist_processed_file=True)
+    process(snapshot_date="2023-12-01", persist_processed_file=True)
+    process(snapshot_date="2022-12-01", persist_processed_file=True)
+    process(snapshot_date="2021-12-01", persist_processed_file=True)
+    process(snapshot_date="2020-12-01", persist_processed_file=True)
+    process(snapshot_date="2019-12-01", persist_processed_file=True)
