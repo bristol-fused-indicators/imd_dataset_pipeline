@@ -38,18 +38,18 @@ def main():
     logger.info("lookup data process complete")
 
     # fetch the raw data from source
-    fetch.police_uk.fetch(snapshot_date="2025-12-01", window_months=12)
-    fetch.universal_credit.fetch(snapshot_date="2025-12-01", window_months=12)
+    fetch.police_uk.fetch(snapshot_date="2019-12-01", window_months=12)
+    fetch.universal_credit.fetch(snapshot_date="2019-12-01", window_months=12)
     fetch.connectivity.fetch()
-    fetch.land_registry.fetch(window_months=12, snapshot_date="2025-12-01")
-    fetch.open_street_map.fetch()
+    fetch.land_registry.fetch(window_months=12, snapshot_date="2019-12-01")
+    fetch.open_street_map.fetch(snapshot_date="2019-12-01")
     logger.info("fetch stage complete")
 
     # process raw data into tabular feature sets
-    crime_data = process.police_uk.process(12, "2025-12-01")
+    crime_data = process.police_uk.process(12, "2019-12-01")
     uc_data = process.universal_credit.process()
     connect_data = process.connectivity.process()
-    price_paid_data = process.land_registry.process(12, "2025-12-01")
+    price_paid_data = process.land_registry.process(12, "2019-12-01")
     osm_data = process.open_street_map.process()
     logger.info("process stage complete")
 
