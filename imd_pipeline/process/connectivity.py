@@ -3,11 +3,12 @@ from loguru import logger
 from polars import selectors as sls
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol
+from imd_pipeline.utils.lsoas import filter_lsoas
 
 INPUT_DIR = paths.data_raw / "connectivity"
 
-def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+
+def process(district_name: str, persist_processed_file: bool = False) -> pl.LazyFrame:
     """Loads raw connectivity data, standardises the LSOA code column, and filters to Bristol.
 
     Returns:
@@ -22,7 +23,12 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
     df = (
         pl.scan_parquet(INPUT_DIR / "connectivity.parquet")
         .select(pl.col("LSOA21CD").alias("lsoa_code"), sls.exclude(pl.col("LSOA21CD")))
-        .pipe(filter_bristol, "lsoa_code", paths.data_lookup / "geography_lookup.csv")
+        .pipe(
+            filter_lsoas,
+            "lsoa_code",
+            district_name,
+            paths.data_reference / "lsoa_lookup.csv",
+        )
     )
 
     if persist_processed_file:
