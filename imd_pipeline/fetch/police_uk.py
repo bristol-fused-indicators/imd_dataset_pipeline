@@ -17,7 +17,7 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
+from imd_pipeline.utils.lsoas import get_district_slug, get_target_codes
 from imd_pipeline.utils.timeframes import get_window_bounds, months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
@@ -100,12 +100,7 @@ def load_lsoa_polygons(
     Returns:
         Dict mapping lsoa_code to a formatted coordinate string.
     """
-    target_codes = (
-        pl.read_csv(lsoa_lookup_path)
-        .filter(pl.col("lad_name") == district_name)
-        .get_column("lsoa_code_21")
-        .to_list()
-    )
+    target_codes = get_target_codes(district_name)
 
     gdf = gpd.read_file(boundary_lookup_path)
     gdf = gdf[gdf["lsoa_code"].isin(target_codes)]
@@ -342,13 +337,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path):
         zip_path: Path to the downloaded zip-file
     """
     district_slug = get_district_slug(district_name)
-    target_codes = (
-        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
-        .filter(pl.col("lad_name") == district_name)
-        .get_column("lsoa_code_21")
-        .to_list()
-    )
-
+    target_codes = get_target_codes(district_name)
     # TODO: clean up this function, not particurlalry readable
 
     # Get paths to reqauired files
