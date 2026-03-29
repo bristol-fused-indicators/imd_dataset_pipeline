@@ -1,27 +1,27 @@
 import json
-from pathlib import Path
-
 import os
 import zipfile
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urljoin
+
+import geopandas as gpd
 import polars as pl
 import requests
+from bs4 import BeautifulSoup as bs
+from dateutil.relativedelta import relativedelta
 from loguru import logger
 from project_paths import paths
 from ratelimit import limits
 from shapely.geometry import Polygon, shape
-from bs4 import BeautifulSoup as bs
-from urllib.parse import urljoin
-from collections import defaultdict
-
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.timeframes import months_in_window, get_window_bounds
+from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
+from imd_pipeline.utils.timeframes import get_window_bounds, months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
-ARCHIVE_URL = "https://data.police.uk/data/archive/"  
-OUTPUT_DIR = paths.data_raw / "police_uk"
+ARCHIVE_URL = "https://data.police.uk/data/archive/"
 MAX_MONTHS = 36
 
 
@@ -86,7 +86,9 @@ def simplify_and_format(polygon: Polygon) -> str:
     return formatted
 
 
-def load_lsoa_polygons(lookup_path: Path) -> dict[str, str]:
+def load_lsoa_polygons(
+    district_name: str, lsoa_lookup_path: Path, boundary_lookup_path: Path
+) -> dict[str, str]:
     """Loads LSOA geometries from the geography lookup and formats them for the Police UK API.
 
     For each LSOA, calls `extract_largest_polygon` to get a single useable shape,
@@ -98,14 +100,20 @@ def load_lsoa_polygons(lookup_path: Path) -> dict[str, str]:
     Returns:
         Dict mapping lsoa_code to a formatted coordinate string.
     """
+    target_codes = (
+        pl.read_csv(lsoa_lookup_path)
+        .filter(pl.col("lad_name") == district_name)
+        .get_column("lsoa_code_21")
+        .to_list()
+    )
 
-    df = pl.read_csv(lookup_path, columns=["lsoa_code", "geo_shape"])
+    gdf = gpd.read_file(boundary_lookup_path)
+    gdf = gdf[gdf["lsoa_code"].isin(target_codes)]
+    gdf_4326 = gdf.to_crs(epsg=4326)
     result = {}
-    for row in df.iter_rows(named=True):
-        geojson = json.loads(row["geo_shape"])
-        geom = shape(geojson)
-        largest = extract_largest_polygon(geom)
-        result[row["lsoa_code"]] = simplify_and_format(largest)
+    for _, row in gdf_4326.iterrows():
+        largest = extract_largest_polygon(row.geometry)  # type: ignore
+        result[row["lsoa_code"]] = simplify_and_format(largest)  # type: ignore
     logger.info(f"loaded {len(result)} LSOA polygons")
     return result
 
@@ -190,6 +198,7 @@ def fetch_month(
 def fetch_api(
     snapshot_date: str,
     window_months: int,
+    district_name: str,
     force_refresh: bool = False,
 ):
     """Fetches all Police UK crime data for a year range and consolidates into a single parquet.
@@ -217,8 +226,13 @@ def fetch_api(
             f"Reduce the range or use bulk CSV downloads from data.police.uk for historical data."
         )
 
-    lookup_path = paths.data_lookup / "geography_lookup.csv"
-    lsoa_polys = load_lsoa_polygons(lookup_path)
+    boundary_lookup_path = paths.data_reference / "lsoa_boundaries.gpkg"
+    lsoa_lookup_path = paths.data_reference / "lsoa_lookkup.csv"
+    lsoa_polys = load_lsoa_polygons(
+        district_name=district_name,
+        lsoa_lookup_path=lsoa_lookup_path,
+        boundary_lookup_path=boundary_lookup_path,
+    )
     months = months_in_window(snapshot_date=snapshot_date, window_months=window_months)
     logger.info(
         f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
@@ -227,7 +241,13 @@ def fetch_api(
     session = create_session()
     month_paths = []
     for month in months:
-        path = fetch_month(month, lsoa_polys, session, OUTPUT_DIR, force_refresh)
+        path = fetch_month(
+            month,
+            lsoa_polys,
+            session,
+            paths.raw / get_district_slug(district_name) / "police_uk",
+            force_refresh,
+        )
         month_paths.append(path)
 
 
@@ -235,10 +255,10 @@ def parse_range(text: str):
     """format and process date ranges"""
     text = text.lower().replace("contains data from ", "").strip()
     start_str, end_str = text.split(" to ")
-    
+
     start_dt = datetime.strptime(start_str, "%b %Y").date()
     end_dt = datetime.strptime(end_str, "%b %Y").date()
-    
+
     return start_dt, end_dt
 
 
@@ -249,7 +269,7 @@ def build_dataset_index() -> dict:
         None
 
     Returns:
-        dataset_index: dictionary with end dates as key items and then start dates and csv download extensions as a value pair. 
+        dataset_index: dictionary with end dates as key items and then start dates and csv download extensions as a value pair.
         If none are found, returns an empty dictionary.
     """
 
@@ -260,16 +280,13 @@ def build_dataset_index() -> dict:
     for p in soup.find_all("p", class_="contained-range"):
         range_text = p.get_text(strip=True)
         start_dt, end_dt = parse_range(range_text)
-        
+
         parent = p.find_parent()
         link = parent.find("a", href=True)
-        
+
         if link:
-            dataset_index[end_dt] = {
-                "start_dt": start_dt,
-                "url": link["href"]
-            }
-    
+            dataset_index[end_dt] = {"start_dt": start_dt, "url": link["href"]}
+
     return dict(sorted(dataset_index.items(), reverse=True))
 
 
@@ -303,8 +320,9 @@ def fetch_url_from_dates(
             oldest_date = item + relativedelta(months=1)
         if newest_date_found >= newest_date:
             break
-    
+
     return links_to_fetch
+
 
 def download_zip_files(download_url: str, zip_download_path: Path):
     """Given a download url, fetch the respective zip file to teh specified download path"""
@@ -315,7 +333,7 @@ def download_zip_files(download_url: str, zip_download_path: Path):
                 f.write(chunk)
 
 
-def produce_monthly_outputs(zip_path: Path):
+def produce_monthly_outputs(district_name: str, zip_path: Path):
     """
     Given the path to the downloaded zip-file, this function extracts and processes data from it and then saves the outputs as
     monthly parquet files.
@@ -323,65 +341,70 @@ def produce_monthly_outputs(zip_path: Path):
     Args:
         zip_path: Path to the downloaded zip-file
     """
+    district_slug = get_district_slug(district_name)
+    target_codes = (
+        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name") == district_name)
+        .get_column("lsoa_code_21")
+        .to_list()
+    )
 
-    # TODO: clean up this function, not particurlalry readable 
+    # TODO: clean up this function, not particurlalry readable
 
     # Get paths to reqauired files
     with zipfile.ZipFile(zip_path, "r") as z:
-        
         monthly_files = defaultdict(dict)
-        
+
         for file in z.namelist():
-            if "avon-and-somerset" in file and file.endswith(".csv"):
-                month = file.split("/")[0]
-                if "street" in file:
-                    monthly_files[month]["street"] = file
-                elif "outcomes" in file:
-                    monthly_files[month]["outcomes"] = file
+            month = file.split("/")[0]
+            if "street" in file:
+                monthly_files[month]["street"] = file
+            elif "outcomes" in file:
+                monthly_files[month]["outcomes"] = file
 
         for month, files in monthly_files.items():
-            
             if "street" not in files:
-                continue  
-            
+                continue
+
             with z.open(files["street"]) as f:
                 street_df = pl.read_csv(f)
-            
+
             street_df = street_df.drop_nulls(subset="Crime ID")
 
             if "outcomes" in files:
                 with z.open(files["outcomes"]) as f:
                     outcomes_df = pl.read_csv(f)
-                
+
                 outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
 
-                merged = street_df.join(
-                    outcomes_df,
-                    on="Crime ID",
-                    how="left"
-                )
+                merged = street_df.join(outcomes_df, on="Crime ID", how="left")
             else:
                 merged = street_df
-            
-            merged = merged.with_columns(
-                pl.lit(month).alias("month"))
 
-           
+            merged = merged.filter(
+                pl.col("LSOA code").is_in(target_codes)
+            ).with_columns(pl.lit(month).alias("month"))
+
             merged.select(
-                ["month",
-                pl.col("Crime type").alias("category"),
-                pl.col( "LSOA code").alias("lsoa_code"),
-                pl.col( "Outcome type").alias("outcome_status")]
-                ).write_parquet(OUTPUT_DIR / f"{month}.parquet")
-    
+                [
+                    "month",
+                    pl.col("Crime type").alias("category"),
+                    pl.col("LSOA code").alias("lsoa_code"),
+                    pl.col("Outcome type").alias("outcome_status"),
+                ]
+            ).write_parquet(
+                paths.data_raw / district_slug / "police_uk" / f"{month}.parquet"
+            )
+
 
 def fetch_bulk_csv(
-    newest_date: str,
-    oldest_date: int,
+    newest_date: datetime,
+    oldest_date: datetime,
+    district_name: str,
     force_refresh: bool = False,
 ):
     """This is the main function for fetching by bulk csv download. Once the download url assosciated with the desired
-    csvs are found, loops through the list of urls for data fetching and processing. Once all processes are done, the large 
+    csvs are found, loops through the list of urls for data fetching and processing. Once all processes are done, the large
     zip files are removed.
 
     Args:
@@ -390,9 +413,9 @@ def fetch_bulk_csv(
 
     # TODO: Add logic to recognise if files already downloaded, add relevance to force_refresh
 
-    zip_path = OUTPUT_DIR / "temp.zip"
+    zip_path = paths.data_raw / "temp.zip"
 
-    csv_urls = fetch_url_from_dates(newest_date,oldest_date)
+    csv_urls = fetch_url_from_dates(newest_date, oldest_date)
 
     if not csv_urls:
         logger.debug("no police uk csv files found for specified date range")
@@ -400,18 +423,19 @@ def fetch_bulk_csv(
     for csv_url in csv_urls:
         logger.info(f"downloading data from {csv_url}")
         download_zip_files(csv_url, zip_path)
-        produce_monthly_outputs(zip_path)
+        produce_monthly_outputs(district_name=district_name, zip_path=zip_path)
 
     # Remove large zip file?
     try:
         os.remove(zip_path)
-    except:
-        logger.error("Error in removing zip file. Script functionality unaffected, but manual removal of zip file recommended")
+    except Exception:
+        logger.error(
+            "Error in removing zip file. Script functionality unaffected, but manual removal of zip file recommended"
+        )
+
 
 def fetch(
-    snapshot_date="2025-12-01",
-    window_months=12,
-    force_refresh=True
+    district_name: str, snapshot_date="2025-12-01", window_months=12, force_refresh=True
 ):
     """
     Given a date and range of months, routes the fetching of data relevant to these to use the API or/and bulk csv downloads.
@@ -425,40 +449,66 @@ def fetch(
 
     """
 
-    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
-    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
+    newest_date_to_fetch = (
+        datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
+    )
+    oldest_date_to_fetch = (
+        newest_date_to_fetch - relativedelta(months=window_months)
+    ).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
-    
+
     """Note: Me (Dan B) and Dan H discussed that we are using .today() 
     when fetching data for today, which may create a boundry effect if the source isn't updated
     before midnight of the 1st of every month"""
 
-    logger.debug(f"newest date to fetch: {newest_date_to_fetch}")      
+    logger.debug(f"newest date to fetch: {newest_date_to_fetch}")
     logger.debug(f"oldest date to fetch: {oldest_date_to_fetch}")
     logger.debug(f"api date limit: {api_date_limit}")
 
-    # date range entirely covered by api 
+    # date range entirely covered by api
     if oldest_date_to_fetch >= api_date_limit:
-        fetch_api(snapshot_date, window_months, force_refresh)
-    
+        fetch_api(
+            snapshot_date=snapshot_date,
+            window_months=window_months,
+            district_name=district_name,
+            force_refresh=force_refresh,
+        )
+
     # date range only partially covered by api
     elif newest_date_to_fetch >= api_date_limit:
-
         delta = relativedelta(newest_date_to_fetch, api_date_limit)
         api_window = delta.years * 12 + delta.months
 
         """Note: we are not considering using a ceiling because we have already ensured all dates are
         changed to the 1st of the month."""
 
-
-        fetch_bulk_csv(newest_date=api_date_limit, oldest_date=oldest_date_to_fetch, force_refresh=force_refresh)
-        fetch_api(snapshot_date=str(newest_date_to_fetch), window_months=api_window, force_refresh=force_refresh)
+        fetch_bulk_csv(
+            newest_date=api_date_limit,  # type: ignore
+            oldest_date=oldest_date_to_fetch,  # type: ignore
+            district_name=district_name,
+            force_refresh=force_refresh,
+        )
+        fetch_api(
+            snapshot_date=str(newest_date_to_fetch),
+            window_months=api_window,
+            district_name=district_name,
+            force_refresh=force_refresh,
+        )
 
     # date range not covered by api, only
     else:
-        fetch_bulk_csv(newest_date_to_fetch, oldest_date_to_fetch, force_refresh)
-
+        fetch_bulk_csv(
+            newest_date_to_fetch,  # type: ignore
+            oldest_date_to_fetch,  # type: ignore
+            district_name,
+            force_refresh,
+        )
 
 
 if __name__ == "__main__":
-    fetch(snapshot_date="2020-06-01", window_months=20, force_refresh=False)
+    fetch(
+        snapshot_date="2020-06-01",
+        window_months=20,
+        district_name="Bristol, City of",
+        force_refresh=False,
+    )
