@@ -4,6 +4,18 @@ import polars as pl
 from loguru import logger
 
 
+def district_slug(district_name: str) -> str:
+    """Converts a LAD name to a filesystem safe string.
+
+    Example:
+        >>> district_slug("Bristol, City of")
+        'bristol_city_of'
+        >>> district_slug("Bournemouth, Christchurch and Poole")
+        'bournemouth_christchurch_and_poole'
+    """
+    return district_name.replace(" ", "_").lower().strip("_")
+
+
 def filter_lsoas(
     lf: pl.LazyFrame, code_col: str, district_name: str, geography_path: Path
 ) -> pl.LazyFrame:
