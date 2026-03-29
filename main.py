@@ -53,12 +53,21 @@ def main():
     osm_data = process.open_street_map.process()
     logger.info("process stage complete")
 
-    # combine processed data
-    combined = combine.join(
-        crime_data, uc_data, connect_data, price_paid_data, osm_data, population_data
-    )
+    try:
+        # combine processed data
+        combined = combine.join(
+            crime_data,
+            uc_data,
+            connect_data,
+            price_paid_data,
+            osm_data,
+            population_data,
+        )
 
-    logger.info("pipeline complete")
+        logger.info("pipeline complete")
+    except ValueError:
+        logger.exception("combine step validation failed")
+        raise
 
 
 if __name__ == "__main__":
