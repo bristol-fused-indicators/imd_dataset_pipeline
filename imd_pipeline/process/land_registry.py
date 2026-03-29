@@ -92,7 +92,12 @@ def price_inequality_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .agg([ 
             pl.col("price").quantile(0.9).alias("p90"),
             pl.col("price").quantile(0.1).alias("p10")])
-        .with_columns((pl.col("p90") / pl.col("p10")).alias("lsoa_price_inequality"))
+        .with_columns(
+            pl.when(pl.col("p10") > 0)
+            .then(pl.col("p90") / pl.col("p10"))
+            .otherwise(None)
+            .alias("lsoa_price_inequality")
+        )
         .select(["lsoa_code", "lsoa_price_inequality"])
     )
 
