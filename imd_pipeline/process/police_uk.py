@@ -1,4 +1,3 @@
-from datetime import date
 from functools import cache, partial
 
 import polars as pl
@@ -6,7 +5,7 @@ import polars.selectors as slt
 from loguru import logger
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol
+from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
 from imd_pipeline.utils.timeframes import months_in_window
 
 CRIME_CATEGORIES = [
@@ -109,7 +108,10 @@ def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(
-    window_months, snapshot_date, persist_processed_file: bool = False
+    window_months: int,
+    snapshot_date: str,
+    district_name: str,
+    persist_processed_file: bool = False,
 ) -> pl.LazyFrame:
     """Loads monthly police parquet files within the time window, filters to Bristol, aggregates by category and outcome, and derives summary stats.
 
@@ -122,12 +124,14 @@ def process(
         LazyFrame of aggregated crime stats per Bristol LSOA.
     """
 
+    district_slug = get_district_slug(district_name)
+
     logger.info(
         "processing police data",
         window_months=window_months,
         snapshot_date=snapshot_date,
     )
-    dir = paths.data_raw / "police_uk"
+    dir = paths.data_raw / district_slug / "police_uk"
     is_valid_file = partial(
         file_in_window, window_months=window_months, snapshot_date=snapshot_date
     )
@@ -138,16 +142,19 @@ def process(
     dataframe = (
         pl.concat([pl.scan_parquet(file) for file in files])
         .pipe(
-            filter_bristol,
+            filter_lsoas,
+            district_name=district_name,
             code_col="lsoa_code",
-            geography_path=paths.data_lookup / "geography_lookup.csv",
+            geography_path=paths.data_reference / "lsoa_lookup.csv",
         )
         .pipe(aggregate_to_lsoa)
         .pipe(derive_stats)
     )
 
     if persist_processed_file:
-        dataframe.sink_parquet(paths.data_processed / "police_uk.parquet")
+        dataframe.sink_parquet(
+            paths.data_processed / district_slug / "police_uk.parquet"
+        )
         logger.info(
             "police data written", path=str(paths.data_processed / "police_uk.parquet")
         )
@@ -158,4 +165,5 @@ def process(
 if __name__ == "__main__":
     window_months = 12
     snapshot_date = "2025-12-01"
-    process(window_months, snapshot_date)
+    district_name = "Bristol, City of"
+    process(window_months, snapshot_date, district_name)

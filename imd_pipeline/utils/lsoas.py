@@ -4,7 +4,7 @@ import polars as pl
 from loguru import logger
 
 
-def district_slug(district_name: str) -> str:
+def get_district_slug(district_name: str) -> str:
     """Converts a LAD name to a filesystem safe string.
 
     Example:

@@ -3,9 +3,7 @@ from loguru import logger
 from polars import selectors as sls
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_lsoas
-
-INPUT_DIR = paths.data_raw / "connectivity"
+from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
 
 
 def process(district_name: str, persist_processed_file: bool = False) -> pl.LazyFrame:
@@ -14,14 +12,16 @@ def process(district_name: str, persist_processed_file: bool = False) -> pl.Lazy
     Returns:
         LazyFrame of Bristol connectivity metrics with lsoa_code as the key column.
     """
+    district_slug = get_district_slug(district_name)
+    input_dir = paths.data_raw / "connectivity"
 
     logger.info(
         "processing connectivity data",
-        source=str(INPUT_DIR / "connectivity.parquet"),
+        source=str(input_dir / "connectivity.parquet"),
     )
 
     df = (
-        pl.scan_parquet(INPUT_DIR / "connectivity.parquet")
+        pl.scan_parquet(input_dir / "connectivity.parquet")
         .select(pl.col("LSOA21CD").alias("lsoa_code"), sls.exclude(pl.col("LSOA21CD")))
         .pipe(
             filter_lsoas,
@@ -32,6 +32,6 @@ def process(district_name: str, persist_processed_file: bool = False) -> pl.Lazy
     )
 
     if persist_processed_file:
-        df.sink_parquet(INPUT_DIR / "connectivity.parquet")
+        df.sink_parquet(paths.data_processed / district_slug / "connectivity.parquet")
 
     return df

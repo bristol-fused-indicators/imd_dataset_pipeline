@@ -25,6 +25,10 @@ data/lookup/*.csv
 data/raw/universal_credit/*.parquet
 data/raw/connectivity/*.parquet
 
+data/raw/*/**/***.csv 
+data/raw/*/**/***.parquet 
+data/raw/*/**/***.json 
+
 
 .vscode/*
 

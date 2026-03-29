@@ -2,7 +2,8 @@ import polars as pl
 from project_paths import paths
 
 from imd_pipeline.utils.lsoas import (
-    filter_bristol,
+    filter_lsoas,
+    get_district_slug,
     map_postcode_to_lsoa_code,
 )
 from imd_pipeline.utils.timeframes import get_window_bounds
@@ -26,7 +27,14 @@ COLUMNS = [
     "record_status",
 ]
 
-PROPERTY_TYPES = {"T": "terraced", "F": "flats", "S": "semi_detached", "D": "detached", "O": "other"}
+PROPERTY_TYPES = {
+    "T": "terraced",
+    "F": "flats",
+    "S": "semi_detached",
+    "D": "detached",
+    "O": "other",
+}
+
 
 def mean_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes mean transaction price per LSOA as lsoa_mean_price."""
@@ -37,6 +45,7 @@ def mean_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .rename({"price": "lsoa_mean_price"})
     )
 
+
 def median_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes median transaction price per LSOA as lsoa_median_price."""
     return (
@@ -45,6 +54,7 @@ def median_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .median()
         .rename({"price": "lsoa_median_price"})
     )
+
 
 def stdev_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes stdev of transaction price per LSOA as lsoa_stdev_price."""
@@ -65,6 +75,7 @@ def max_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .rename({"price": "lsoa_max_price"})
     )
 
+
 def min_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes min transaction price per LSOA as lsoa_min_price."""
     return (
@@ -73,6 +84,7 @@ def min_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .min()
         .rename({"price": "lsoa_min_price"})
     )
+
 
 def range_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes range of transaction price per LSOA as lsoa_range_price."""
@@ -83,15 +95,19 @@ def range_price_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
         .rename({"price": "lsoa_range_price"})
     )
 
+
 def price_inequality_by_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes price inequality per LSOA as lsoa_price_inequality,
     defined as p90 / p10."""
     return (
         lf.select("lsoa_code", "price")
         .group_by("lsoa_code")
-        .agg([ 
-            pl.col("price").quantile(0.9).alias("p90"),
-            pl.col("price").quantile(0.1).alias("p10")])
+        .agg(
+            [
+                pl.col("price").quantile(0.9).alias("p90"),
+                pl.col("price").quantile(0.1).alias("p10"),
+            ]
+        )
         .with_columns(
             pl.when(pl.col("p10") > 0)
             .then(pl.col("p90") / pl.col("p10"))
@@ -152,76 +168,94 @@ def transactions_per_property_type(lf: pl.LazyFrame) -> pl.LazyFrame:
         )
     )
 
+
 def proportion_of_new_builds(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes proportion of transactions that are new builds per LSOA as new_build_proportion."""
-    total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
-    new_build_transactions = lf.filter(pl.col("old_new") == "Y").group_by("lsoa_code").len().rename({"len": "new_build_transactions"})
+    total_transactions = (
+        lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
+    )
+    new_build_transactions = (
+        lf.filter(pl.col("old_new") == "Y")
+        .group_by("lsoa_code")
+        .len()
+        .rename({"len": "new_build_transactions"})
+    )
     return (
-        total_transactions.join(
-            new_build_transactions,
-             on="lsoa_code",
-              how="left"
-              )
+        total_transactions.join(new_build_transactions, on="lsoa_code", how="left")
         .with_columns(
-            (pl.col("new_build_transactions") / pl.col("total_transactions")
-                )
+            (pl.col("new_build_transactions") / pl.col("total_transactions"))
             .fill_null(0)
             .alias("new_build_proportion")
-            )
+        )
         .select("lsoa_code", "new_build_proportion")
     )
 
+
 def proportion_of_freehold(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes proportion of transactions that are freehold per LSOA as freehold_proportion."""
-    total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
-    freehold_transactions = lf.filter(pl.col("duration") == "F").group_by("lsoa_code").len().rename({"len": "freehold_transactions"})
+    total_transactions = (
+        lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
+    )
+    freehold_transactions = (
+        lf.filter(pl.col("duration") == "F")
+        .group_by("lsoa_code")
+        .len()
+        .rename({"len": "freehold_transactions"})
+    )
     return (
-        total_transactions.join(
-            freehold_transactions,
-            on="lsoa_code",
-            how="left"
-        )
+        total_transactions.join(freehold_transactions, on="lsoa_code", how="left")
         .with_columns(
-            (pl.col("freehold_transactions") / pl.col("total_transactions")
-            )
+            (pl.col("freehold_transactions") / pl.col("total_transactions"))
             .fill_null(0)
             .alias("freehold_proportion")
         )
         .select("lsoa_code", "freehold_proportion")
-    )   
+    )
+
 
 def proportion_of_property_type(lf: pl.LazyFrame, prop_type: str) -> pl.LazyFrame:
     """Pipeable func - computes proportion of transactions for a porperty type per LSOA as {proporty type}_proportion."""
-    total_transactions = lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
-    type_transactions = lf.filter(pl.col("property_type") == prop_type).group_by("lsoa_code").len().rename({"len": f"{PROPERTY_TYPES[prop_type]}_transactions"})
+    total_transactions = (
+        lf.group_by("lsoa_code").len().rename({"len": "total_transactions"})
+    )
+    type_transactions = (
+        lf.filter(pl.col("property_type") == prop_type)
+        .group_by("lsoa_code")
+        .len()
+        .rename({"len": f"{PROPERTY_TYPES[prop_type]}_transactions"})
+    )
     return (
-        total_transactions.join(
-            type_transactions,
-            on="lsoa_code",
-            how="left"
-        )
+        total_transactions.join(type_transactions, on="lsoa_code", how="left")
         .with_columns(
-            (pl.col(f"{PROPERTY_TYPES[prop_type]}_transactions") / pl.col("total_transactions")
+            (
+                pl.col(f"{PROPERTY_TYPES[prop_type]}_transactions")
+                / pl.col("total_transactions")
             )
             .fill_null(0)
             .alias(f"{PROPERTY_TYPES[prop_type]}_proportion")
         )
         .select("lsoa_code", f"{PROPERTY_TYPES[prop_type]}_proportion")
-    )   
+    )
+
 
 def new_build_price_premium(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - computes new build price premium per LSOA as new_build_price_premium, defined as mean price of new builds / mean price of non-new builds."""
-    new_build_prices = lf.filter(pl.col("old_new") == "Y").group_by("lsoa_code").mean().rename({"price": "new_build_mean_price"})
-    non_new_build_prices = lf.filter(pl.col("old_new") == "N").group_by("lsoa_code").mean().rename({"price": "non_new_build_mean_price"})
+    new_build_prices = (
+        lf.filter(pl.col("old_new") == "Y")
+        .group_by("lsoa_code")
+        .mean()
+        .rename({"price": "new_build_mean_price"})
+    )
+    non_new_build_prices = (
+        lf.filter(pl.col("old_new") == "N")
+        .group_by("lsoa_code")
+        .mean()
+        .rename({"price": "non_new_build_mean_price"})
+    )
     return (
-        new_build_prices.join(
-            non_new_build_prices,
-            on="lsoa_code",
-            how="left"
-        )
+        new_build_prices.join(non_new_build_prices, on="lsoa_code", how="left")
         .with_columns(
-            (pl.col("new_build_mean_price") / pl.col("non_new_build_mean_price")
-            )
+            (pl.col("new_build_mean_price") / pl.col("non_new_build_mean_price"))
             .fill_null(0)
             .alias("new_build_price_premium")
         )
@@ -251,11 +285,11 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
         transactions_per_property_type(lf),
         proportion_of_new_builds(lf),
         proportion_of_freehold(lf),
-        proportion_of_property_type(lf, 'T'),
-        proportion_of_property_type(lf, 'F'),
-        proportion_of_property_type(lf, 'S'),
-        proportion_of_property_type(lf, 'D'),
-        proportion_of_property_type(lf, 'O'),
+        proportion_of_property_type(lf, "T"),
+        proportion_of_property_type(lf, "F"),
+        proportion_of_property_type(lf, "S"),
+        proportion_of_property_type(lf, "D"),
+        proportion_of_property_type(lf, "O"),
         new_build_price_premium(lf),
     ]
     for frame in all_frames:
@@ -265,7 +299,10 @@ def aggregate_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def process(
-    window_months, snapshot_date, persist_processed_file: bool = False
+    window_months: int,
+    snapshot_date: str,
+    district_name: str,
+    persist_processed_file: bool = False,
 ) -> pl.LazyFrame:
     """Loads Land Registry CSVs for the time window, maps postcodes to LSOA codes, filters to Bristol, and aggregates stats.
 
@@ -307,15 +344,19 @@ def process(
             lookup_path=paths.data_lookup / "postcode_lookup.csv",
         )
         .pipe(
-            filter_bristol,
+            filter_lsoas,
+            district_name=district_name,
             code_col="lsoa_code",
-            geography_path=paths.data_lookup / "geography_lookup.csv",
+            geography_path=paths.data_reference / "lsoa_lookup.csv",
         )
         .pipe(aggregate_stats)
     )
 
     if persist_processed_file:
-        dataframe.sink_parquet(paths.data_processed / "land_registry.parquet")
+        district_slug = get_district_slug(district_name)
+        dataframe.sink_parquet(
+            paths.data_processed / district_slug / "land_registry.parquet"
+        )
 
     return dataframe
 
@@ -323,4 +364,5 @@ def process(
 if __name__ == "__main__":
     snapshot_date = "2025-12-01"
     window_months = 12
-    process(window_months, snapshot_date, True)
+    district_name = "Bristol, City of"
+    process(window_months, snapshot_date, district_name, True)

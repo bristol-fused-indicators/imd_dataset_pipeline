@@ -2,9 +2,14 @@ import polars as pl
 from loguru import logger
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol, map_lsoa_names_to_codes
+from imd_pipeline.utils.lsoas import (
+    filter_lsoas,
+    get_district_slug,
+    map_lsoa_names_to_codes,
+)
 
 INPUT_DIR = paths.data_raw / "universal_credit"
+
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - groups by LSOA, computing total and mean monthly claims for each UC conditionality group."""
@@ -70,7 +75,7 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+def process(district_name: str, persist_processed_file: bool = False) -> pl.LazyFrame:
     """Loads raw UC data, maps LSOA names to codes, filters to Bristol, aggregates by LSOA, and calculates ratios.
 
     Args:
@@ -80,35 +85,41 @@ def process(persist_processed_file: bool = False) -> pl.LazyFrame:
         LazyFrame of aggregated UC stats per Bristol LSOA.
     """
 
+    district_slug = get_district_slug(district_name)
+
     logger.info(
         "processing universal credit data",
-        source=str(INPUT_DIR / "universal_credit.parquet"),
+        source=str(INPUT_DIR / district_slug / "universal_credit.parquet"),
     )
     df = (
-        pl.scan_parquet(INPUT_DIR / "universal_credit.parquet")
+        pl.scan_parquet(INPUT_DIR / district_slug / "universal_credit.parquet")
         .pipe(
             map_lsoa_names_to_codes,
             name_col="lsoa_name",
-            lookup_path=paths.data_lookup / "lsoa_2011_2021_lookup.csv",
+            lookup_path=paths.data_reference / "lsoa_lookup.csv",
         )
         .pipe(
-            filter_bristol,
+            filter_lsoas,
+            district_name=district_name,
             code_col="lsoa_code",
-            geography_path=paths.data_lookup / "geography_lookup.csv",
+            geography_path=paths.data_reference / "lsoa_lookup.csv",
         )
         .pipe(aggregate_to_lsoa)
         .pipe(calculate_ratios)
     )
 
     if persist_processed_file:
-        df.sink_parquet(paths.data_processed / "universal_credit.parquet")
+        df.sink_parquet(
+            paths.data_processed / district_slug / "universal_credit.parquet"
+        )
         logger.info(
             "universal credit data written",
-            path=str(paths.data_processed / "universal_credit.parquet"),
+            path=str(paths.data_processed / district_slug / "universal_credit.parquet"),
         )
 
     return df
 
 
 if __name__ == "__main__":
-    process()
+    district_name = "Bristol, City of"
+    process(district_name)
