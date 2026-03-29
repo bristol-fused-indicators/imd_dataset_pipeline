@@ -4,10 +4,10 @@ import polars as pl
 from loguru import logger
 
 
-def filter_bristol(
-    lf: pl.LazyFrame, code_col: str, geography_path: Path
+def filter_lsoas(
+    lf: pl.LazyFrame, code_col: str, district_name: str, geography_path: Path
 ) -> pl.LazyFrame:
-    """Filters a Polars LazyFrame to Bristol LSOAs only.
+    """Filters a Polars LazyFrame to region's LSOAs only.
 
     Args:
         lf: Input LazyFrame.
@@ -17,19 +17,24 @@ def filter_bristol(
     Returns:
         Filtered LazyFrame with the LSOA code column renamed to lsoa_code.
     """
-    bristol_codes = pl.scan_csv(geography_path).select("lsoa_code").unique()
+    lsoa_codes = (
+        pl.scan_csv(geography_path)
+        .filter(pl.col("lad_name") == district_name)
+        .select(pl.col("lsoa_code_21").alias("lsoa_code"))
+        .unique()
+    )
 
     if code_col == "lsoa_code":
-        result = lf.join(bristol_codes, on="lsoa_code", how="semi")
+        result = lf.join(lsoa_codes, on="lsoa_code", how="semi")
     else:
         result = lf.join(
-            bristol_codes,
+            lsoa_codes,
             left_on=code_col,
             right_on="lsoa_code",
             how="semi",
         ).rename({code_col: "lsoa_code"})
 
-    logger.debug("filter_bristol applied on column '{}'", code_col)
+    logger.debug("filter_lsoas applied on column '{}'", code_col)
     return result
 
 
