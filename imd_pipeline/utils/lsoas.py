@@ -2,6 +2,16 @@ from pathlib import Path
 
 import polars as pl
 from loguru import logger
+from project_paths import paths
+
+
+def get_target_codes(district_name: str):
+    return (
+        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name") == district_name)
+        .get_column("lsoa_code_21")
+        .to_list()
+    )
 
 
 def get_district_slug(district_name: str) -> str:
