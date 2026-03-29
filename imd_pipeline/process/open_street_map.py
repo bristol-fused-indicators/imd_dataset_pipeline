@@ -10,7 +10,7 @@ from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
 
-from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
+from imd_pipeline.utils.lsoas import get_district_slug, get_target_codes
 
 BUFFER_DISTANCES = [
     0,
@@ -331,12 +331,7 @@ def process(
         amenity_groups: dict = json.load(f)
 
     # set up lsoa dataframe
-    target_codes = (
-        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
-        .filter(pl.col("lad_name") == district_name)
-        .get_column("lsoa_code_21")
-        .to_list()
-    )
+    target_codes = get_target_codes(district_name)
 
     lsoa_gdf = gpd.read_file(paths.data_reference / "lsoa_boundaries.gpkg")
     lsoa_gdf = lsoa_gdf[lsoa_gdf["lsoa_code"].isin(target_codes)][
