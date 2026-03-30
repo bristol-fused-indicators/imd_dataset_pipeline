@@ -280,7 +280,7 @@ def format_osm_geodataframes(
 
 
 def get_polygon(x) -> Polygon:
-    return Polygon(json.loads(x).get("coordinates")[0][0])
+    return Polygon(json.loads(x).get("coordinates")[0])
 
 
 def process(persist_processed_file: bool = False, snapshot_date: str | None = None) -> pl.LazyFrame:

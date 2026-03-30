@@ -26,14 +26,14 @@ def main():
     )
 
     # fetch and process lookup data
+    fetch.lsoa_2011_2021_lookup.fetch()
     fetch.geography_lookup.fetch()
     fetch.postcode_lookup.fetch()
-    fetch.lsoa_2011_2021_lookup.fetch()
     fetch.population_lookup.fetch()
     logger.info("lookup data fetch complete")
+    process.lsoa_2011_2021_lookup.process()
     process.geography_lookup.process()
     process.postcode_lookup.process()
-    process.lsoa_2011_2021_lookup.process()
     population_data = process.population_lookup.process(persist_processed_file=True)
     logger.info("lookup data process complete")
 

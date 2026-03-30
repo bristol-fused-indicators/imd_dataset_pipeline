@@ -27,7 +27,6 @@ def fetch(force_refresh: bool = False):
     chunk_size = 200
     all_features = []
 
-    # 2️⃣ fetch batches using only objectIds
     for i in range(0, len(object_ids), chunk_size):
         batch_ids = object_ids[i:i+chunk_size]
 
@@ -39,7 +38,6 @@ def fetch(force_refresh: bool = False):
         batch_data = json.loads(r_batch.content.decode("utf-8"))["features"]
         all_features.extend(batch_data)
 
-    # 3️⃣ save as a single valid GeoJSON
     geojson_data = {"type": "FeatureCollection", "features": all_features}
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
