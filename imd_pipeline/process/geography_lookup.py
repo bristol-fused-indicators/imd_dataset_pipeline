@@ -22,7 +22,7 @@ def process(local_authorities: list[str]) -> pl.LazyFrame:
         geom = feat.get("geometry")
         if geom:
             # Save geometry as JSON string with "coordinates" key
-            props["geo_shape"] = json.dumps({"coordinates": geom.get("rings")})
+            props["geo_shape"] = json.dumps({"coordinates": [geom.get("rings")]})
        
         rows.append(props)
 
