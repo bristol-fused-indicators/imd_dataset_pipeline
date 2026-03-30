@@ -9,25 +9,27 @@ from imd_pipeline.utils.http import create_session
 
 def fetch(force_refresh: bool = False):
 
-    output_path = paths.data_raw / "lookup" / "geography_lookup.parquet"
+    output_path = paths.data_raw / "lookup" / "geography_lookup.geojson"
+
     if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
 
-    url = "https://opendata.westofengland-ca.gov.uk/api/explore/v2.1/catalog/datasets/lep_lsoa_geog/exports/csv?lang=en&qv1=(bristol)&timezone=Europe%2FLondon&use_labels=true&delimiter=%2C"
+    url = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Lower_layer_Super_Output_Areas_December_2021_Boundaries_EW_BGC_V5/FeatureServer/0/query?where=1%3D1&outFields=LSOA21CD,LSOA21NM,LSOA21NMW,LAT,LONG,Shape__Area,Shape__Length&outSR=4326&f=json"
+
     session = create_session()
-    logger.info("downloading geography_lookup data", url=url)
+    logger.info("downloading geojson", url=url)
+
     r = session.get(url)
+    r.raise_for_status()
 
-    df: pd.DataFrame = pd.read_csv(
-        BytesIO(r.content),
-    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.debug("geography_lookup data loaded", shape=df.shape)
+    with open(output_path, "wb") as f:
+        f.write(r.content)
 
-    df.to_parquet(output_path)
-    logger.info("geography_lookup data written", path=str(output_path))
+    logger.info("geojson saved", path=str(output_path))
 
 
 if __name__ == "__main__":
-    fetch()
+    fetch(force_refresh=True)
