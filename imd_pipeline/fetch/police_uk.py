@@ -436,9 +436,42 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
     when fetching data for today, which may create a boundry effect if the source isn't updated
     before midnight of the 1st of every month"""
 
+    months_to_fetch = (
+        pl.date_range(oldest_date_to_fetch, newest_date_to_fetch, interval="1mo", eager=True)
+        .dt.strftime("%Y-%m")
+        .to_list()
+    )
+
+    missing_months = []
+
+    # check cache hit
+    if not force_refresh:
+
+        for month in months_to_fetch:
+            month_path = paths.data_raw / get_district_slug(district_name) / "police_uk" / f"{month}.parquet"
+
+            if month_path.exists():
+                logger.debug(f"cache hit: {month}")
+            else:
+                missing_months.append(month)
+
+        if missing_months:
+            s = pl.Series(missing_months).str.strptime(pl.Date, "%Y-%m")
+            oldest_date_to_fetch = s.min()
+            newest_date_to_fetch = s.max()
+        else:
+            logger.debug("cache hit for all months, skipping fetch")
+            return
+
     logger.debug(f"newest date to fetch: {newest_date_to_fetch}")
     logger.debug(f"oldest date to fetch: {oldest_date_to_fetch}")
     logger.debug(f"api date limit: {api_date_limit}")
+
+    # trim months to fetch based on avaiability on webpage
+
+    dataset_index = build_dataset_index()
+    available_dates = list(dataset_index.keys())
+    print(available_dates)
 
     # date range entirely covered by api
     if oldest_date_to_fetch >= api_date_limit:
@@ -482,7 +515,7 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
 if __name__ == "__main__":
     fetch(
-        snapshot_date="2020-06-01",
+        snapshot_date="2024-06-01",
         window_months=20,
         district_name="Bristol, City of",
         force_refresh=False,
