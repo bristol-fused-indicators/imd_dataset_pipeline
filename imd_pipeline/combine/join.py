@@ -94,7 +94,7 @@ def join(*processed_frames: pl.LazyFrame, district_name: str, save_to_disk: bool
     if save_to_disk:
         output_dir = paths.data_output / get_district_slug(district_name)
         if not output_dir.exists():
-            os.makedirs(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "combined_indicators.parquet"
         df.write_parquet(output_path)
         logger.info(

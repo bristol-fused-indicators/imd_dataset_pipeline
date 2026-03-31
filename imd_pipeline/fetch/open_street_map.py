@@ -26,9 +26,7 @@ def get_area_bbox(
     return (miny, minx, maxy, maxx)
 
 
-def expand_bbox(
-    bbox: tuple[float, float, float, float], buffer_m: float = 5000
-) -> tuple[float, float, float, float]:
+def expand_bbox(bbox: tuple[float, float, float, float], buffer_m: float = 5000) -> tuple[float, float, float, float]:
     """
     Expands a bounding box by buffer meters (approximate, using degrees conversion).
 
@@ -97,6 +95,8 @@ def fetch(
 
     district_slug = get_district_slug(district_name)
     output_path = paths.data_raw / district_slug / "osm" / filename
+    if not output_path.exists():
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     overpass_url = "https://overpass-api.de/api/interpreter"
 

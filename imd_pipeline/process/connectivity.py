@@ -32,6 +32,9 @@ def process(district_name: str, persist_processed_file: bool = False) -> pl.Lazy
     )
 
     if persist_processed_file:
-        df.sink_parquet(paths.data_processed / district_slug / "connectivity.parquet")
+        output_path = paths.data_processed / district_slug / "connectivity.parquet"
+        if not output_path.parent.exists():
+            output_path.parent.mkdir(parents=True)
+        df.sink_parquet(output_path)
 
     return df
