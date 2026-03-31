@@ -34,14 +34,10 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
 
     # structural checks - raise on failure
     if df.height != spine_count:
-        raise ValueError(
-            f"Row count mismatch: expected {spine_count} from spine, got {df.height}"
-        )
+        raise ValueError(f"Row count mismatch: expected {spine_count} from spine, got {df.height}")
 
     if df["lsoa_code"].n_unique() != df.height:
-        raise ValueError(
-            f"Duplicate lsoa_codes: {df.height - df['lsoa_code'].n_unique()} duplicates found"
-        )
+        raise ValueError(f"Duplicate lsoa_codes: {df.height - df['lsoa_code'].n_unique()} duplicates found")
 
     if df["lsoa_code"].null_count() > 0:
         raise ValueError(f"Null lsoa_codes: {df['lsoa_code'].null_count()} nulls found")
@@ -58,24 +54,25 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
         if nan_count > 0:
             logger.warning("NaN values detected", column=col, count=nan_count)
 
+    cols_nulls_present = []
     for col in df.columns:
         if col == "lsoa_code":
             continue
         null_count = df[col].null_count()
         if null_count > 0:
-            logger.warning("null values detected", column=col, count=null_count)
+            cols_nulls_present.append(col)
+            # logger.warning("null values detected", column=col, count=null_count)
 
     # fill inf/NaN to null, then null to 0
     if float_cols:
         df = df.with_columns(
             [
-                pl.when(pl.col(c).is_infinite() | pl.col(c).is_nan())
-                .then(None)
-                .otherwise(pl.col(c))
-                .alias(c)
+                pl.when(pl.col(c).is_infinite() | pl.col(c).is_nan()).then(None).otherwise(pl.col(c)).alias(c)
                 for c in float_cols
             ]
         )
+
+    logger.info(f"null values filled in columns: {cols_nulls_present}")
 
     df = df.with_columns(pl.all().exclude("lsoa_code").fill_null(0))
 
