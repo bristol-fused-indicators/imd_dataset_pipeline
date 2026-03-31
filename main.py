@@ -41,7 +41,7 @@ def main():
     logger.info("lookup data fetch complete")
 
     logger.info("fetching national level data")
-    fetch.population_lookup.fetch()
+    fetch.population_lookup.fetch(snapshot_date=config.snapshot_date, force_refresh=True)
     fetch.connectivity.fetch()
     ic(config.window_months, config.snapshot_date, config.lad_names)
     fetch.land_registry.fetch(window_months=config.window_months, snapshot_date=config.snapshot_date)
@@ -50,7 +50,7 @@ def main():
         logger.info("running city level pipeline", city=district_name)
 
         process.postcode_lookup.process(district_name=district_name)
-        population_data = process.population_lookup.process(district_name=district_name, persist_processed_file=True)
+        population_data = process.population_lookup.process(district_name=district_name)
         logger.info("lookup data process complete")
 
         # fetch the raw data from source
@@ -96,6 +96,7 @@ def main():
                 price_paid_data,
                 osm_data,
                 population_data,
+                district_name=district_name,
             )
 
             logger.info("pipeline complete")

@@ -1,11 +1,16 @@
+import os
+
 import polars as pl
+
+# import polars.selectors
 from loguru import logger
 from project_paths import paths
 
 from imd_pipeline.process import police_uk, universal_credit
+from imd_pipeline.utils.lsoas import get_district_slug
 
 
-def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataFrame:
+def join(*processed_frames: pl.LazyFrame, district_name: str, save_to_disk: bool = True) -> pl.DataFrame:
     """Joins all processed indicator frames onto the LSOA spine, validates, fills nulls/NaN/inf, and saves.
 
     Structural checks (row count, duplicate keys, null keys) raise on failure.
@@ -20,8 +25,11 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
     """
 
     logger.info("joining processed frames", frame_count=len(processed_frames))
-    lsoa_frame = pl.scan_csv(paths.data_lookup / "lsoa_2011_2021_lookup.csv").select(
-        pl.col("lsoa_code_21").alias("lsoa_code")
+    lsoa_frame = (
+        pl.scan_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name").eq(district_name))
+        .select(pl.col("lsoa_code_21").alias("lsoa_code"))
+        .unique()
     )
 
     spine_count = lsoa_frame.collect().height
@@ -37,6 +45,8 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
         raise ValueError(f"Row count mismatch: expected {spine_count} from spine, got {df.height}")
 
     if df["lsoa_code"].n_unique() != df.height:
+        df_dupes = df.group_by(pl.col("lsoa_code")).len(name="tally").filter(pl.col("tally") > 1)
+        print(df_dupes)
         raise ValueError(f"Duplicate lsoa_codes: {df.height - df['lsoa_code'].n_unique()} duplicates found")
 
     if df["lsoa_code"].null_count() > 0:
@@ -82,10 +92,14 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
         raise ValueError(f"Nulls remain after fill: {remaining}")
 
     if save_to_disk:
-        df.write_parquet(paths.data_output / "combined_indicators.parquet")
+        output_dir = paths.data_output / get_district_slug(district_name)
+        if not output_dir.exists():
+            os.makedirs(output_dir)
+        output_path = output_dir / "combined_indicators.parquet"
+        df.write_parquet(output_path)
         logger.info(
-            "combined dataset written",
-            path=str(paths.data_output / "combined_indicators.parquet"),
+            f"combined dataset written, path={output_path}",
+            path=output_path,
         )
 
     return df
