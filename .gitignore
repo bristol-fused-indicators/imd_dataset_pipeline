@@ -29,6 +29,7 @@ data/raw/*/**/***.csv
 data/raw/*/**/***.parquet 
 data/raw/*/**/***.json 
 
+data/*/**/***/****.parquet
 
 .vscode/*
 
