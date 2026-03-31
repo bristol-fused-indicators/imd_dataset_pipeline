@@ -8,8 +8,6 @@ from imd_pipeline.utils.lsoas import (
     map_lsoa_names_to_codes,
 )
 
-INPUT_DIR = paths.data_raw / "universal_credit"
-
 
 def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - groups by LSOA, computing total and mean monthly claims for each UC conditionality group."""
@@ -65,12 +63,8 @@ def calculate_ratios(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - adds percentage columns for each UC conditionality group relative to total claims."""
     return lf.with_columns(
         (pl.col("total_nwr_claims") / pl.col("total_claims")).alias("%_claims_nwr"),
-        (pl.col("total_planfw_claims") / pl.col("total_claims")).alias(
-            "%_claims_planfw"
-        ),
-        (pl.col("total_prepfw_claims") / pl.col("total_claims")).alias(
-            "%_claims_prepfw"
-        ),
+        (pl.col("total_planfw_claims") / pl.col("total_claims")).alias("%_claims_planfw"),
+        (pl.col("total_prepfw_claims") / pl.col("total_claims")).alias("%_claims_prepfw"),
         (pl.col("total_sfw_claims") / pl.col("total_claims")).alias("%_claims_sfw"),
     )
 
@@ -84,15 +78,15 @@ def process(district_name: str, persist_processed_file: bool = False) -> pl.Lazy
     Returns:
         LazyFrame of aggregated UC stats per Bristol LSOA.
     """
-
     district_slug = get_district_slug(district_name)
+    input_dir = paths.data_raw / get_district_slug(district_name) / "universal_credit"
 
     logger.info(
         "processing universal credit data",
-        source=str(INPUT_DIR / district_slug / "universal_credit.parquet"),
+        source=str(input_dir),
     )
     df = (
-        pl.scan_parquet(INPUT_DIR / district_slug / "universal_credit.parquet")
+        pl.scan_parquet(input_dir / "universal_credit.parquet")
         .pipe(
             map_lsoa_names_to_codes,
             name_col="lsoa_name",
@@ -109,9 +103,7 @@ def process(district_name: str, persist_processed_file: bool = False) -> pl.Lazy
     )
 
     if persist_processed_file:
-        df.sink_parquet(
-            paths.data_processed / district_slug / "universal_credit.parquet"
-        )
+        df.sink_parquet(paths.data_processed / district_slug / "universal_credit.parquet")
         logger.info(
             "universal credit data written",
             path=str(paths.data_processed / district_slug / "universal_credit.parquet"),

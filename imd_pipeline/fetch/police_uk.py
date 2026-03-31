@@ -86,9 +86,7 @@ def simplify_and_format(polygon: Polygon) -> str:
     return formatted
 
 
-def load_lsoa_polygons(
-    district_name: str, lsoa_lookup_path: Path, boundary_lookup_path: Path
-) -> dict[str, str]:
+def load_lsoa_polygons(district_name: str, lsoa_lookup_path: Path, boundary_lookup_path: Path) -> dict[str, str]:
     """Loads LSOA geometries from the geography lookup and formats them for the Police UK API.
 
     For each LSOA, calls `extract_largest_polygon` to get a single useable shape,
@@ -229,9 +227,7 @@ def fetch_api(
         boundary_lookup_path=boundary_lookup_path,
     )
     months = months_in_window(snapshot_date=snapshot_date, window_months=window_months)
-    logger.info(
-        f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs"
-    )
+    logger.info(f"fetching {len(months)} months of police data for {len(lsoa_polys)} LSOAs")
 
     session = create_session()
     month_paths = []
@@ -240,7 +236,7 @@ def fetch_api(
             month,
             lsoa_polys,
             session,
-            paths.raw / get_district_slug(district_name) / "police_uk",
+            paths.data_raw / get_district_slug(district_name) / "police_uk",
             force_refresh,
         )
         month_paths.append(path)
@@ -370,9 +366,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path):
             else:
                 merged = street_df
 
-            merged = merged.filter(
-                pl.col("LSOA code").is_in(target_codes)
-            ).with_columns(pl.lit(month).alias("month"))
+            merged = merged.filter(pl.col("LSOA code").is_in(target_codes)).with_columns(pl.lit(month).alias("month"))
 
             merged.select(
                 [
@@ -381,9 +375,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path):
                     pl.col("LSOA code").alias("lsoa_code"),
                     pl.col("Outcome type").alias("outcome_status"),
                 ]
-            ).write_parquet(
-                paths.data_raw / district_slug / "police_uk" / f"{month}.parquet"
-            )
+            ).write_parquet(paths.data_raw / district_slug / "police_uk" / f"{month}.parquet")
 
 
 def fetch_bulk_csv(
@@ -423,9 +415,7 @@ def fetch_bulk_csv(
         )
 
 
-def fetch(
-    district_name: str, snapshot_date="2025-12-01", window_months=12, force_refresh=True
-):
+def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, force_refresh=True):
     """
     Given a date and range of months, routes the fetching of data relevant to these to use the API or/and bulk csv downloads.
     This split is due to the API being limited to just the most recent 36 months of data. For older requests, the csv files
@@ -438,12 +428,8 @@ def fetch(
 
     """
 
-    newest_date_to_fetch = (
-        datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
-    )
-    oldest_date_to_fetch = (
-        newest_date_to_fetch - relativedelta(months=window_months)
-    ).replace(day=1)
+    newest_date_to_fetch = datetime.strptime(snapshot_date, "%Y-%m-%d").date().replace(day=1)
+    oldest_date_to_fetch = (newest_date_to_fetch - relativedelta(months=window_months)).replace(day=1)
     api_date_limit = (datetime.today() - relativedelta(months=36)).date()
 
     """Note: Me (Dan B) and Dan H discussed that we are using .today() 
