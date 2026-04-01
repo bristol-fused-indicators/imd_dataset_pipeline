@@ -3,29 +3,38 @@ from loguru import logger
 from polars import selectors as sls
 from project_paths import paths
 
-from imd_pipeline.utils.lsoas import filter_bristol
+from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
 
-INPUT_DIR = paths.data_raw / "connectivity"
 
-def process(persist_processed_file: bool = False) -> pl.LazyFrame:
+def process(district_name: str, persist_processed_file: bool = False) -> pl.LazyFrame:
     """Loads raw connectivity data, standardises the LSOA code column, and filters to Bristol.
 
     Returns:
         LazyFrame of Bristol connectivity metrics with lsoa_code as the key column.
     """
+    district_slug = get_district_slug(district_name)
+    input_dir = paths.data_raw / "connectivity"
 
     logger.info(
         "processing connectivity data",
-        source=str(INPUT_DIR / "connectivity.parquet"),
+        source=str(input_dir / "connectivity.parquet"),
     )
 
     df = (
-        pl.scan_parquet(INPUT_DIR / "connectivity.parquet")
+        pl.scan_parquet(input_dir / "connectivity.parquet")
         .select(pl.col("LSOA21CD").alias("lsoa_code"), sls.exclude(pl.col("LSOA21CD")))
-        .pipe(filter_bristol, "lsoa_code", paths.data_lookup / "geography_lookup.csv")
+        .pipe(
+            filter_lsoas,
+            "lsoa_code",
+            district_name,
+            paths.data_reference / "lsoa_lookup.csv",
+        )
     )
 
     if persist_processed_file:
-        df.sink_parquet(INPUT_DIR / "connectivity.parquet")
+        output_path = paths.data_processed / district_slug / "connectivity.parquet"
+        if not output_path.parent.exists():
+            output_path.parent.mkdir(parents=True)
+        df.sink_parquet(output_path)
 
     return df

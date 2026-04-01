@@ -1,39 +1,30 @@
+import json
+from pathlib import Path
+
+import geopandas as gpd
+import polars as pl
 from loguru import logger
 from project_paths import paths
-import json
 
 from imd_pipeline.utils.http import cached_fetch_json, create_session
+from imd_pipeline.utils.lsoas import get_district_slug
 
-def get_area_bbox(force_refresh: bool = False) -> tuple[float, float, float, float]:
-    """Fetches the bounding box for Bristol using the Overpass API."""
 
-    query = """
-    [out:json];
-    relation["ISO3166-2"="GB-BST"];
-    out bb;
-    """
+def get_area_bbox(
+    boundary_path: Path,
+    target_codes: list,
+) -> tuple[float, float, float, float]:
+    """Computes the bounding box for a city from LSOA boundaries."""
 
-    output_path = paths.data_raw / "osm" / "bristol_bbox.json"
+    gdf = gpd.read_file(boundary_path)
+    gdf = gdf[gdf["lsoa_code"].isin(target_codes)]
 
-    response_path = cached_fetch_json(
-        url="https://overpass-api.de/api/interpreter",
-        output_path=output_path,
-        session=create_session(),
-        force_refresh=force_refresh,
-        params={"data": query},
-    )
+    gdf_4326 = gdf.to_crs(epsg=4326)
+    minx, miny, maxx, maxy = gdf_4326.total_bounds
 
-    with open(response_path) as f:
-        data = json.load(f)
+    # Return as (min_lat, min_lon, max_lat, max_lon) to match existing convention
+    return (miny, minx, maxy, maxx)
 
-    bounds = data["elements"][0]["bounds"]
-
-    return (
-        bounds["minlat"],
-        bounds["minlon"],
-        bounds["maxlat"],
-        bounds["maxlon"],
-    )
 
 def expand_bbox(bbox: tuple[float, float, float, float], buffer_m: float = 5000) -> tuple[float, float, float, float]:
     """
@@ -46,8 +37,8 @@ def expand_bbox(bbox: tuple[float, float, float, float], buffer_m: float = 5000)
     Returns:
         expanded bounding box
     """
-    
-    buffer_deg = buffer_m / 111000 # Rough approximation: 1 degree latitude ~ 111 km
+
+    buffer_deg = buffer_m / 111000  # Rough approximation: 1 degree latitude ~ 111 km
     min_lat, min_lon, max_lat, max_lon = bbox
     return (
         min_lat - buffer_deg,
@@ -56,7 +47,13 @@ def expand_bbox(bbox: tuple[float, float, float, float], buffer_m: float = 5000)
         max_lon + buffer_deg,
     )
 
-def fetch(force_refresh: bool = False, buffer_m: float = 5000, snapshot_date: str | None = None):
+
+def fetch(
+    district_name: str,
+    force_refresh: bool = False,
+    buffer_m: float = 5000,
+    snapshot_date: str | None = None,
+):
     """Fetches Bristol OSM data from the Overpass API using cached_fetch_json,
     which skips the download if the file already exists.
 
@@ -77,17 +74,29 @@ def fetch(force_refresh: bool = False, buffer_m: float = 5000, snapshot_date: st
         snapshot_date=snapshot_date,
     )
 
-    min_lat, min_lon, max_lat, max_lon = expand_bbox(get_area_bbox(), buffer_m)
+    target_codes = (
+        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name") == district_name)
+        .get_column("lsoa_code_21")
+        .to_list()
+    )
+    boundary_path = paths.data_reference / "lsoa_boundaries.gpkg"
+    min_lat, min_lon, max_lat, max_lon = expand_bbox(
+        get_area_bbox(target_codes=target_codes, boundary_path=boundary_path), buffer_m
+    )
 
     if snapshot_date:
-        timestamp = f'{snapshot_date}T00:00:00Z'
+        timestamp = f"{snapshot_date}T00:00:00Z"
         date_clause = f'[date:"{timestamp}"]'
         filename = f"overpass_response_{snapshot_date}.json"
     else:
         date_clause = ""
         filename = "overpass_response.json"
 
-    output_path = paths.data_raw / "osm" / filename
+    district_slug = get_district_slug(district_name)
+    output_path = paths.data_raw / district_slug / "osm" / filename
+    if not output_path.exists():
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     overpass_url = "https://overpass-api.de/api/interpreter"
 
@@ -118,4 +127,4 @@ out geom;
 
 
 if __name__ == "__main__":
-    fetch()
+    fetch(district_name="Bristol, City of")

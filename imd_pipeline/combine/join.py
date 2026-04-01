@@ -1,11 +1,16 @@
+import os
+
 import polars as pl
+
+# import polars.selectors
 from loguru import logger
 from project_paths import paths
 
 from imd_pipeline.process import police_uk, universal_credit
+from imd_pipeline.utils.lsoas import get_district_slug
 
 
-def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataFrame:
+def join(*processed_frames: pl.LazyFrame, district_name: str, save_to_disk: bool = True) -> pl.DataFrame:
     """Joins all processed indicator frames onto the LSOA spine, validates, fills nulls/NaN/inf, and saves.
 
     Structural checks (row count, duplicate keys, null keys) raise on failure.
@@ -20,8 +25,11 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
     """
 
     logger.info("joining processed frames", frame_count=len(processed_frames))
-    lsoa_frame = pl.scan_csv(paths.data_lookup / "lsoa_2011_2021_lookup.csv").select(
-        pl.col("lsoa_code_21").alias("lsoa_code")
+    lsoa_frame = (
+        pl.scan_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name").eq(district_name))
+        .select(pl.col("lsoa_code_21").alias("lsoa_code"))
+        .unique()
     )
 
     spine_count = lsoa_frame.collect().height
@@ -34,14 +42,12 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
 
     # structural checks - raise on failure
     if df.height != spine_count:
-        raise ValueError(
-            f"Row count mismatch: expected {spine_count} from spine, got {df.height}"
-        )
+        raise ValueError(f"Row count mismatch: expected {spine_count} from spine, got {df.height}")
 
     if df["lsoa_code"].n_unique() != df.height:
-        raise ValueError(
-            f"Duplicate lsoa_codes: {df.height - df['lsoa_code'].n_unique()} duplicates found"
-        )
+        df_dupes = df.group_by(pl.col("lsoa_code")).len(name="tally").filter(pl.col("tally") > 1)
+        print(df_dupes)
+        raise ValueError(f"Duplicate lsoa_codes: {df.height - df['lsoa_code'].n_unique()} duplicates found")
 
     if df["lsoa_code"].null_count() > 0:
         raise ValueError(f"Null lsoa_codes: {df['lsoa_code'].null_count()} nulls found")
@@ -58,24 +64,25 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
         if nan_count > 0:
             logger.warning("NaN values detected", column=col, count=nan_count)
 
+    cols_nulls_present = []
     for col in df.columns:
         if col == "lsoa_code":
             continue
         null_count = df[col].null_count()
         if null_count > 0:
-            logger.warning("null values detected", column=col, count=null_count)
+            cols_nulls_present.append(col)
+            # logger.warning("null values detected", column=col, count=null_count)
 
     # fill inf/NaN to null, then null to 0
     if float_cols:
         df = df.with_columns(
             [
-                pl.when(pl.col(c).is_infinite() | pl.col(c).is_nan())
-                .then(None)
-                .otherwise(pl.col(c))
-                .alias(c)
+                pl.when(pl.col(c).is_infinite() | pl.col(c).is_nan()).then(None).otherwise(pl.col(c)).alias(c)
                 for c in float_cols
             ]
         )
+
+    logger.info(f"null values filled in columns: {cols_nulls_present}")
 
     df = df.with_columns(pl.all().exclude("lsoa_code").fill_null(0))
 
@@ -85,10 +92,14 @@ def join(*processed_frames: pl.LazyFrame, save_to_disk: bool = True) -> pl.DataF
         raise ValueError(f"Nulls remain after fill: {remaining}")
 
     if save_to_disk:
-        df.write_parquet(paths.data_output / "combined_indicators.parquet")
+        output_dir = paths.data_output / get_district_slug(district_name)
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "combined_indicators.parquet"
+        df.write_parquet(output_path)
         logger.info(
-            "combined dataset written",
-            path=str(paths.data_output / "combined_indicators.parquet"),
+            f"combined dataset written, path={output_path}",
+            path=output_path,
         )
 
     return df

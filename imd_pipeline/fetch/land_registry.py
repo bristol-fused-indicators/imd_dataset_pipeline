@@ -7,9 +7,7 @@ from requests import Session
 from imd_pipeline.utils.http import cached_fetch, create_session
 from imd_pipeline.utils.timeframes import get_window_bounds
 
-BASE_URL = (
-    "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
-)
+BASE_URL = "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/"
 MONTHLY_UPDATE_URL = f"{BASE_URL}pp-monthly-update-new-version.csv"
 YEARLY_URL_TEMPLATE = f"{BASE_URL}pp-{{year}}.csv"
 
@@ -32,9 +30,7 @@ def fetch_yearly(session: Session, year: int, force_refresh: bool = False) -> Pa
     url = YEARLY_URL_TEMPLATE.format(year=year)
     output_path = RAW_DIR / f"land_registry_price_paid_{year}.csv"
     logger.info("fetching yearly land registry data", year=year)
-    return cached_fetch(
-        url=url, output_path=output_path, session=session, force_refresh=force_refresh
-    )
+    return cached_fetch(url=url, output_path=output_path, session=session, force_refresh=force_refresh)
 
 
 def _required_years(snapshot_date: str, window_months: int) -> list[int]:
@@ -48,9 +44,7 @@ def _required_years(snapshot_date: str, window_months: int) -> list[int]:
         List of years covered by the window.
     """
 
-    start, end = get_window_bounds(
-        snapshot_date=snapshot_date, window_months=window_months
-    )
+    start, end = get_window_bounds(snapshot_date=snapshot_date, window_months=window_months)
     return list(range(start.year, end.year + 1))
 
 

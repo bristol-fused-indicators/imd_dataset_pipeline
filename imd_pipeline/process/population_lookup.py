@@ -5,6 +5,8 @@ import polars.selectors as cs
 from loguru import logger
 from project_paths import paths
 
+from imd_pipeline.utils.lsoas import filter_lsoas, get_district_slug
+
 UNDER_15 = [
     "aged_0_to_4",
     "aged_5_to_9",
@@ -42,6 +44,7 @@ PENSION_AGE = [
     "M65 and over",
 ]
 
+
 def age_column_to_snake(name: str) -> str:
     """
     Convert age population columns like:
@@ -65,8 +68,19 @@ def age_column_to_snake(name: str) -> str:
     return name.lower().replace(" ", "_")
 
 
+def select_population_columns(lf: pl.LazyFrame, snapshot_year: str) -> pl.LazyFrame:
+    """Pipeable func - selects and standardises population columns across different ONS schema years."""
+    # if snapshot_year == "2025":
+    #     return lf.select(cs.contains("population") | cs.by_name("LSOA code")).rename({"LSOA code": "lsoa_code"})
+    # else:
+    return lf.select(cs.contains("to") | cs.contains("over") | cs.by_name("LSOA 2021 Code")).rename(
+        {"LSOA 2021 Code": "lsoa_code"}
+    )
 
-def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = False) -> pl.LazyFrame:
+
+def process(
+    district_name: str, snapshot_date: str = "2025-12-01", persist_processed_file: bool = False
+) -> pl.LazyFrame:
 
     snapshot_year = snapshot_date[:4]
     logger.info(
@@ -74,53 +88,36 @@ def process(snapshot_date: str = "2025-12-01", persist_processed_file: bool = Fa
         source=str(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet"),
     )
 
+    df = (
+        pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
+        .pipe(select_population_columns, snapshot_year)
+        # .rename(age_column_to_snake)
+        .pipe(filter_lsoas, "lsoa_code", district_name, paths.data_reference / "lsoa_lookup.csv")
+    )
 
-    if snapshot_year == "2025":
-        df = (
-            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
-            .filter(pl.col("Local Authority") == "Bristol, City of")
-            .select(cs.contains("population") | cs.by_name("LSOA code"))
-            .rename(age_column_to_snake)
-        )
-
-    elif snapshot_year == "2023" or snapshot_year == "2022":
-        df = (
-            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
-            .filter(pl.col("LAD 2023 Name") == "Bristol")
-            .select(cs.contains("to") | cs.contains("over") | cs.by_name("LSOA 2021 Code"))
-            .rename({"LSOA 2021 Code" : "lsoa_code"})
-        )
-
-    else:
-        df = (
-            pl.scan_parquet(paths.data_raw / "lookup" / f"population_lookup_{snapshot_year}.parquet")
-            .filter(pl.col("LAD 2021 Name") == "Bristol")
-            .select(cs.contains("to") | cs.contains("over") | cs.by_name("LSOA 2021 Code"))
-            .rename({"LSOA 2021 Code" : "lsoa_code"})
-        )
+    logger.debug(f"population dataframe created - district: {district_name}, len: {len(df.collect())}")
 
     existing_cols = df.collect_schema().names()
-    
+
+    logger.debug(f"existing cols: {existing_cols}")
+
     # Sum them row-wise into a new column
-    df = (
-        df.with_columns(
-            pl.sum_horizontal([c for c in UNDER_15 if c in existing_cols]).alias("aged_under_15"),
-            pl.sum_horizontal([c for c in WORKING_AGE if c in existing_cols]).alias("working_age_population"),
-            pl.sum_horizontal([c for c in PENSION_AGE if c in existing_cols]).alias("pension_age_population"))
-        .select(["lsoa_code", "aged_under_15","working_age_population","pension_age_population"])
-    )
-        
+    df = df.with_columns(
+        pl.sum_horizontal([c for c in UNDER_15 if c in existing_cols], ignore_nulls=True).alias("aged_under_15"),
+        pl.sum_horizontal([c for c in WORKING_AGE if c in existing_cols]).alias("working_age_population"),
+        pl.sum_horizontal([c for c in PENSION_AGE if c in existing_cols]).alias("pension_age_population"),
+    ).select(["lsoa_code", "aged_under_15", "working_age_population", "pension_age_population"])
 
     if persist_processed_file:
-        df.sink_csv(paths.data_lookup / f"population_lookup_{snapshot_year}.csv")
+        df.sink_csv(paths.data_processed / get_district_slug(district_name) / f"population_lookup_{snapshot_year}.csv")
     return df
 
 
 if __name__ == "__main__":
-    process(snapshot_date="2025-12-01", persist_processed_file=True)
-    process(snapshot_date="2024-12-01", persist_processed_file=True)
-    process(snapshot_date="2023-12-01", persist_processed_file=True)
-    process(snapshot_date="2022-12-01", persist_processed_file=True)
-    process(snapshot_date="2021-12-01", persist_processed_file=True)
-    process(snapshot_date="2020-12-01", persist_processed_file=True)
-    process(snapshot_date="2019-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2025-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2024-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2023-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2022-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2021-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2020-12-01", persist_processed_file=True)
+    process(district_name="Bristol, City of", snapshot_date="2019-12-01", persist_processed_file=True)

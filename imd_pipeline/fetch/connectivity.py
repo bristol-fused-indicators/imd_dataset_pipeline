@@ -9,6 +9,7 @@ from imd_pipeline.utils.http import create_session
 output_path = paths.data_raw / "connectivity" / "connectivity.parquet"
 url = "https://assets.publishing.service.gov.uk/media/68c966fc07d9e92bc5517b80/connectivity_metrics_2025.ods"
 
+
 def fetch(force_refresh: bool = False):
     """Downloads connectivity metrics data and saves it to parquet, skipping if already downloaded.
 
@@ -22,7 +23,7 @@ def fetch(force_refresh: bool = False):
     if output_path.exists() and not force_refresh:
         logger.debug("cache hit", path=output_path)
         return
-    
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     session = create_session()

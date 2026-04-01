@@ -10,6 +10,8 @@ from loguru import logger
 from project_paths import paths
 from shapely import LineString, Point, Polygon
 
+from imd_pipeline.utils.lsoas import get_district_slug, get_target_codes
+
 BUFFER_DISTANCES = [
     0,
     250,
@@ -24,12 +26,28 @@ BUFFER_DISTANCES = [
 ]
 
 SELECTED_NEAREST_POI = [
-    'shop', 'hospital', 'pharmacy', 'school', 'kindergarten',
-    'college', 'university', 'bank', 'atm', 'ice_cream',
-    'fast_food', 'pub', 'bar', 'nightclub', 'stripclub',
-    'gambling', 'bicycle_parking', 'cinema', 'theatre',
-    'social_facility'
+    "shop",
+    "hospital",
+    "pharmacy",
+    "school",
+    "kindergarten",
+    "college",
+    "university",
+    "bank",
+    "atm",
+    "ice_cream",
+    "fast_food",
+    "pub",
+    "bar",
+    "nightclub",
+    "stripclub",
+    "gambling",
+    "bicycle_parking",
+    "cinema",
+    "theatre",
+    "social_facility",
 ]
+
 
 def count_ammenities(
     feature_frame: GeoDataFrame,
@@ -38,24 +56,17 @@ def count_ammenities(
     distance: int,
 ) -> pd.Series:
 
-    _ammenities = {
-        ammenity for ammenity in ammenities
-    }  # convert to set to use membership methods
+    _ammenities = {ammenity for ammenity in ammenities}  # convert to set to use membership methods
 
     mask = point_osm_data["tags"].apply(
-        lambda x: any(
-            x.get(key) in _ammenities
-            for key in ("amenity", "shop", "landuse", "highway")
-        )
+        lambda x: any(x.get(key) in _ammenities for key in ("amenity", "shop", "landuse", "highway"))
     )
     point_osm_data_filtered = point_osm_data[mask]
 
     lsoa_gdf = feature_frame[["lsoa_code", f"geom_{distance}"]]
     lsoa_gdf.set_geometry(f"geom_{distance}", inplace=True)
 
-    joined_gdf = point_osm_data_filtered.sjoin(
-        lsoa_gdf, how="inner", predicate="within"
-    )
+    joined_gdf = point_osm_data_filtered.sjoin(lsoa_gdf, how="inner", predicate="within")
     gdf_agg = joined_gdf[["lsoa_code", "id"]].groupby(["lsoa_code"]).count()
 
     return gdf_agg["id"]
@@ -92,9 +103,7 @@ def find_nearest_poi(
     _matches_poi = partial(matches_poi, poi=poi)
 
     filtered_points_gdf = point_osm_data[point_osm_data["tags"].apply(_matches_poi)]
-    joined_gdf = lsoa_gdf.sjoin_nearest(
-        right=filtered_points_gdf, how="inner", distance_col="distance"
-    )
+    joined_gdf = lsoa_gdf.sjoin_nearest(right=filtered_points_gdf, how="inner", distance_col="distance")
 
     agged_gdf = joined_gdf[["lsoa_code", "distance"]].groupby(["lsoa_code"]).min()
 
@@ -145,27 +154,19 @@ def find_landuse_share(
     lsoa_areas.rename("lsoa_area", inplace=True)
     lsoa_areas = lsoa_areas.to_frame().reset_index()
 
-    landuse_gdf = polygon_osm_data[
-        polygon_osm_data["tags"].apply(lambda x: "landuse" in x.keys())
-    ].copy()
+    landuse_gdf = polygon_osm_data[polygon_osm_data["tags"].apply(lambda x: "landuse" in x.keys())].copy()
     landuse_gdf["landuse_type"] = landuse_gdf["tags"].apply(lambda x: x.get("landuse"))
 
     intersections_df = lsoa_gdf.overlay(right=landuse_gdf, how="intersection")
     intersections_df["landuse_area"] = intersections_df.geometry.area
 
     intersections_df = (
-        intersections_df[["lsoa_code", "landuse_type", "landuse_area"]]
-        .groupby(["lsoa_code", "landuse_type"])
-        .sum()
+        intersections_df[["lsoa_code", "landuse_type", "landuse_area"]].groupby(["lsoa_code", "landuse_type"]).sum()
     ).reset_index()
 
-    intersections_df = intersections_df.merge(
-        right=lsoa_areas, how="left", left_on="lsoa_code", right_on="lsoa_code"
-    )
+    intersections_df = intersections_df.merge(right=lsoa_areas, how="left", left_on="lsoa_code", right_on="lsoa_code")
 
-    intersections_df["landuse_share"] = (
-        intersections_df["landuse_area"] / intersections_df["lsoa_area"]
-    )
+    intersections_df["landuse_share"] = intersections_df["landuse_area"] / intersections_df["lsoa_area"]
 
     landuse_share_df = (
         intersections_df[["lsoa_code", "landuse_type", "landuse_share"]]
@@ -189,9 +190,7 @@ def find_streetlit_path_percent(
     joined_gdf["clipped_length"] = joined_gdf.apply(
         lambda row: (
             row.geometry.intersection(
-                lsoa_gdf.loc[
-                    lsoa_gdf["lsoa_code"] == row["lsoa_code"], f"geom_{distance}"
-                ].iloc[0]
+                lsoa_gdf.loc[lsoa_gdf["lsoa_code"] == row["lsoa_code"], f"geom_{distance}"].iloc[0]
             ).length
         ),
         axis=1,
@@ -200,9 +199,7 @@ def find_streetlit_path_percent(
     joined_gdf["is_lit"] = joined_gdf["tags"].apply(lambda x: x.get("lit") == "yes")
 
     total_length = joined_gdf.groupby("lsoa_code")["clipped_length"].sum()
-    lit_length = (
-        joined_gdf[joined_gdf["is_lit"]].groupby("lsoa_code")["clipped_length"].sum()
-    )
+    lit_length = joined_gdf[joined_gdf["is_lit"]].groupby("lsoa_code")["clipped_length"].sum()
 
     lit_percent = (lit_length / total_length).fillna(0)
 
@@ -249,12 +246,7 @@ def format_osm_geodataframes(
     polygons_gdf = GeoDataFrame(
         data=polygon_data,
         geometry=[
-            Polygon(
-                [
-                    (node.get("lon"), node.get("lat"))
-                    for node in element.get("geometry", {})
-                ]
-            )
+            Polygon([(node.get("lon"), node.get("lat")) for node in element.get("geometry", {})])
             for element in polygon_data
         ],
         crs="EPSG:4326",
@@ -264,12 +256,7 @@ def format_osm_geodataframes(
     lines_gdf = GeoDataFrame(
         data=line_data,
         geometry=[
-            LineString(
-                [
-                    (node.get("lon"), node.get("lat"))
-                    for node in element.get("geometry", {})
-                ]
-            )
+            LineString([(node.get("lon"), node.get("lat")) for node in element.get("geometry", {})])
             for element in line_data
         ],
         crs="EPSG:4326",
@@ -279,51 +266,40 @@ def format_osm_geodataframes(
     return points_gdf, polygons_gdf, lines_gdf
 
 
-def get_polygon(x) -> Polygon:
-    return Polygon(json.loads(x).get("coordinates")[0][0])
+def process(
+    district_name: str,
+    persist_processed_file: bool = False,
+    snapshot_date: str | None = None,
+) -> pl.LazyFrame:
 
-
-def process(persist_processed_file: bool = False, snapshot_date: str | None = None) -> pl.LazyFrame:
+    district_slug = get_district_slug(district_name)
 
     logger.info("setting up open street map processing...")
 
     if snapshot_date:
-        response_file = paths.data_raw / "osm" / f"overpass_response_{snapshot_date}.json"
+        response_file = paths.data_raw / district_slug / "osm" / f"overpass_response_{snapshot_date}.json"
     else:
-        response_file = paths.data_raw / "osm" / "overpass_response.json"
+        response_file = paths.data_raw / district_slug / "osm" / "overpass_response.json"
 
     with open(response_file) as file:
         data = json.load(file)
     map_elements = data.get("elements")
 
-    osm_points_gdf, osm_polygons_gdf, osm_lines_gdf = format_osm_geodataframes(
-        map_elements=map_elements
-    )
-
-
-
+    osm_points_gdf, osm_polygons_gdf, osm_lines_gdf = format_osm_geodataframes(map_elements=map_elements)
 
     with open(paths.data_config / "amenity_groups.json", "r") as f:
         amenity_groups: dict = json.load(f)
 
     # set up lsoa dataframe
-    lsoa_gdf = gpd.read_file(paths.data_lookup / "geography_lookup.csv")[
-        ["lsoa_code", "geo_shape"]
-    ]
-    lsoa_gdf["geometry"] = lsoa_gdf["geo_shape"].map(get_polygon)
-    lsoa_gdf = (
-        lsoa_gdf[["lsoa_code", "geometry"]]
-        .set_geometry("geometry")
-        .set_crs(epsg=4326)  # we set the source crs - coords start in lat/long degrees
-        .to_crs(
-            epsg=27700
-        )  # Then convert to metric coords. This is so that the distance based operations for buffer zones can be performed
-    )
+    target_codes = get_target_codes(district_name)
+
+    lsoa_gdf = gpd.read_file(paths.data_reference / "lsoa_boundaries.gpkg")
+    lsoa_gdf = lsoa_gdf[lsoa_gdf["lsoa_code"].isin(target_codes)][["lsoa_code", "geometry"]]
+
+    assert lsoa_gdf.crs.to_epsg() == 27700
+
     lsoa_gdf = lsoa_gdf.assign(
-        **{
-            f"geom_{distance}": lsoa_gdf.geometry.buffer(distance)
-            for distance in BUFFER_DISTANCES
-        }
+        **{f"geom_{distance}": lsoa_gdf.geometry.buffer(distance) for distance in BUFFER_DISTANCES}
     ).set_index(  # create geometries of lsoas extended by different distances in meters
         "lsoa_code"
     )
@@ -357,30 +333,34 @@ def process(persist_processed_file: bool = False, snapshot_date: str | None = No
     )
 
     nearest_poi_df = pd.DataFrame(
-        {f"nearest_{ammenity}": find_nearest_poi(
-            feature_frame=lsoa_gdf.reset_index(),
-            point_osm_data=osm_points_gdf,
-            poi=f"{ammenity}",
-            distance=0,
+        {
+            f"nearest_{ammenity}": find_nearest_poi(
+                feature_frame=lsoa_gdf.reset_index(),
+                point_osm_data=osm_points_gdf,
+                poi=f"{ammenity}",
+                distance=0,
             )
-        for ammenity in SELECTED_NEAREST_POI
+            for ammenity in SELECTED_NEAREST_POI
         }
     )
 
     with open(paths.data_config / "ratio_pairs.json", "r") as f:
         ratio_pairs: dict = json.load(f)
-    
+
     ratio_poi_df = pd.DataFrame(
-        {f"ratio_{ratio_pairs[item]['numerator']}_to_{ratio_pairs[item]['denominator']}_{distance}":
-        calculate_ratio_of_elements(
-            feature_frame=lsoa_gdf.reset_index(),
-            point_osm_data=osm_points_gdf,
-            element_groups=(
-                amenity_groups.get(ratio_pairs[item]['numerator'], []),
-                amenity_groups.get(ratio_pairs[item]['denominator'], []),
-            ),
-            distance=distance
-        ) for item in ratio_pairs.keys() for distance in [500, 1000, 2000]}
+        {
+            f"ratio_{ratio_pairs[item]['numerator']}_to_{ratio_pairs[item]['denominator']}_{distance}": calculate_ratio_of_elements(
+                feature_frame=lsoa_gdf.reset_index(),
+                point_osm_data=osm_points_gdf,
+                element_groups=(
+                    amenity_groups.get(ratio_pairs[item]["numerator"], []),
+                    amenity_groups.get(ratio_pairs[item]["denominator"], []),
+                ),
+                distance=distance,
+            )
+            for item in ratio_pairs.keys()
+            for distance in [500, 1000, 2000]
+        }
     )
 
     landuse_shares = find_landuse_share(
@@ -391,9 +371,7 @@ def process(persist_processed_file: bool = False, snapshot_date: str | None = No
 
     landuse_df = pd.DataFrame(
         {
-            f"landuse_{landuse_type}_0": landuse_shares[landuse_type]
-            .reindex(lsoa_gdf.index)
-            .fillna(0)
+            f"landuse_{landuse_type}_0": landuse_shares[landuse_type].reindex(lsoa_gdf.index).fillna(0)
             for landuse_type in landuse_shares.columns
         },
         index=lsoa_gdf.index,
@@ -427,10 +405,13 @@ def process(persist_processed_file: bool = False, snapshot_date: str | None = No
     logger.info("osm process complete")
 
     if persist_processed_file:
-        lsoa_gdf.to_parquet(paths.data_processed / "open_street_map.parquet")
+        output_path = paths.data_processed / district_slug / "open_street_map.parquet"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        lsoa_gdf.to_parquet()
 
     return pl.from_pandas(lsoa_gdf).lazy()
 
 
 if __name__ == "__main__":
-    process()
+    district_name = "Bristol, City of"
+    process(district_name)

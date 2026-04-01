@@ -2,12 +2,34 @@ from pathlib import Path
 
 import polars as pl
 from loguru import logger
+from project_paths import paths
 
 
-def filter_bristol(
-    lf: pl.LazyFrame, code_col: str, geography_path: Path
+def get_target_codes(district_name: str):
+    return (
+        pl.read_csv(paths.data_reference / "lsoa_lookup.csv")
+        .filter(pl.col("lad_name") == district_name)
+        .get_column("lsoa_code_21")
+        .to_list()
+    )
+
+
+def get_district_slug(district_name: str) -> str:
+    """Converts a LAD name to a filesystem safe string.
+
+    Example:
+        >>> district_slug("Bristol, City of")
+        'bristol_city_of'
+        >>> district_slug("Bournemouth, Christchurch and Poole")
+        'bournemouth_christchurch_and_poole'
+    """
+    return district_name.replace(" ", "_").lower().strip("_")
+
+
+def filter_lsoas(
+    lf: pl.LazyFrame, code_col: str, district_name: str, geography_path: Path
 ) -> pl.LazyFrame:
-    """Filters a Polars LazyFrame to Bristol LSOAs only.
+    """Filters a Polars LazyFrame to region's LSOAs only.
 
     Args:
         lf: Input LazyFrame.
@@ -17,19 +39,24 @@ def filter_bristol(
     Returns:
         Filtered LazyFrame with the LSOA code column renamed to lsoa_code.
     """
-    bristol_codes = pl.scan_csv(geography_path).select("lsoa_code").unique()
+    lsoa_codes = (
+        pl.scan_csv(geography_path)
+        .filter(pl.col("lad_name") == district_name)
+        .select(pl.col("lsoa_code_21").alias("lsoa_code"))
+        .unique()
+    )
 
     if code_col == "lsoa_code":
-        result = lf.join(bristol_codes, on="lsoa_code", how="semi")
+        result = lf.join(lsoa_codes, on="lsoa_code", how="semi")
     else:
         result = lf.join(
-            bristol_codes,
+            lsoa_codes,
             left_on=code_col,
             right_on="lsoa_code",
             how="semi",
         ).rename({code_col: "lsoa_code"})
 
-    logger.debug("filter_bristol applied on column '{}'", code_col)
+    logger.debug("filter_lsoas applied on column '{}'", code_col)
     return result
 
 
