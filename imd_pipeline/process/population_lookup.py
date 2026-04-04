@@ -106,7 +106,11 @@ def process(
         pl.sum_horizontal([c for c in UNDER_15 if c in existing_cols], ignore_nulls=True).alias("aged_under_15"),
         pl.sum_horizontal([c for c in WORKING_AGE if c in existing_cols]).alias("working_age_population"),
         pl.sum_horizontal([c for c in PENSION_AGE if c in existing_cols]).alias("pension_age_population"),
-    ).select(["lsoa_code", "aged_under_15", "working_age_population", "pension_age_population"])
+    ).with_columns(
+        pl.sum_horizontal("aged_under_15", "working_age_population", "pension_age_population").alias(
+            "lsoa_population"
+        ),
+    ).select(["lsoa_code", "lsoa_population", "aged_under_15", "working_age_population", "pension_age_population"])
 
     if persist_processed_file:
         df.sink_csv(paths.data_processed / get_district_slug(district_name) / f"population_lookup_{snapshot_year}.csv")
