@@ -73,23 +73,23 @@ def join(*processed_frames: pl.LazyFrame, district_name: str, save_to_disk: bool
             cols_nulls_present.append(col)
             # logger.warning("null values detected", column=col, count=null_count)
 
-    # fill inf/NaN to null, then null to 0
+    # fill inf → null (float cols only), then NaN → 0, then null → 0
     if float_cols:
         df = df.with_columns(
-            [
-                pl.when(pl.col(c).is_infinite() | pl.col(c).is_nan()).then(None).otherwise(pl.col(c)).alias(c)
-                for c in float_cols
-            ]
+            pl.when(pl.col(c).is_infinite()).then(None).otherwise(pl.col(c)).alias(c)
+            for c in float_cols
         )
+    df = df.fill_nan(0).fill_null(0)
 
     logger.info(f"null values filled in columns: {cols_nulls_present}")
 
-    df = df.with_columns(pl.all().exclude("lsoa_code").fill_null(0))
+    remaining_null = {c: df[c].null_count() for c in df.columns if df[c].null_count() > 0}
+    if remaining_null:
+        raise ValueError(f"Nulls remain after fill: {remaining_null}")
 
-    # assert post fill (probably redundant?)
-    remaining = {c: df[c].null_count() for c in df.columns if df[c].null_count() > 0}
-    if remaining:
-        raise ValueError(f"Nulls remain after fill: {remaining}")
+    remaining_nan = {c: df[c].is_nan().sum() for c in float_cols if df[c].is_nan().sum() > 0}
+    if remaining_nan:
+        raise ValueError(f"NaN values remain after fill: {remaining_nan}")
 
     if save_to_disk:
         output_dir = paths.data_output / get_district_slug(district_name)
