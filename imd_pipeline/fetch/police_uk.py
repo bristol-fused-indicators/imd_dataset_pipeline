@@ -7,11 +7,11 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import geopandas as gpd
-from geopolars.datasets import available
 import polars as pl
 import requests
 from bs4 import BeautifulSoup as bs
 from dateutil.relativedelta import relativedelta
+from geopolars.datasets import available
 from loguru import logger
 from project_paths import paths
 from ratelimit import limits
@@ -282,11 +282,7 @@ def build_dataset_index() -> dict:
     return dict(sorted(dataset_index.items(), reverse=True))
 
 
-def fetch_url_from_dates(
-    newest_date: datetime,
-    oldest_date: datetime,
-    dataset_index: dict
-) -> list[str]:
+def fetch_url_from_dates(newest_date: datetime, oldest_date: datetime, dataset_index: dict) -> list[str]:
     """
     Find the specific download links needed to fulfill the respective given data range.
 
@@ -390,11 +386,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
 
 
 def fetch_bulk_csv(
-    newest_date: datetime,
-    oldest_date: datetime,
-    district_name: str,
-    dataset_index: dict,
-    force_refresh: bool = False
+    newest_date: datetime, oldest_date: datetime, district_name: str, dataset_index: dict, force_refresh: bool = False
 ):
     """This is the main function for fetching by bulk csv download. Once the download url assosciated with the desired
     csvs are found, loops through the list of urls for data fetching and processing. Once all processes are done, the large
@@ -405,7 +397,6 @@ def fetch_bulk_csv(
         oldest_date: The oldes requested date
         district_name: Name of local authority to fetch from
         dataset_index: Dictionary of start, end dates and download link extensions"""
-
 
     # TODO: Add logic to recognise if files already downloaded, add relevance to force_refresh
 
@@ -462,7 +453,6 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     # check cache hit
     if not force_refresh:
-
         for month in months_requested:
             month_path = paths.data_raw / get_district_slug(district_name) / "police_uk" / f"{month}.parquet"
 
@@ -490,18 +480,18 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     if newest_date_to_fetch == None:
         logger.debug("all requested police uk data found in cache")
-        return 
+        return
 
     logger.debug(f"police uk data available from {min_avail} to {max_avail}")
     logger.debug(f"newest date to fetch after trimming: {newest_date_to_fetch}")
     logger.debug(f"oldest date to fetch after trimming: {oldest_date_to_fetch}")
     logger.debug(f"api date limit: {api_date_limit}")
 
-    api_fetch_threshold = 2 # number of months to fetch via API
+    api_fetch_threshold = 2  # number of months to fetch via API
 
     # fetch with just api
-    
-    if api_fetch_threshold >= len(months_to_fetch):
+
+    if api_fetch_threshold >= len(months_to_fetch) and oldest_date_to_fetch >= api_date_limit:
         fetch_api(
             snapshot_date=str(newest_date_to_fetch),
             window_months=api_fetch_threshold,
@@ -511,7 +501,6 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     # fetch partially with api
     elif newest_date_to_fetch >= api_date_limit:
-
         """Note: we are not considering using a ceiling because we have already ensured all dates are
         changed to the 1st of the month."""
 
@@ -535,10 +524,11 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
     # date range not covered by api, only
     else:
         fetch_bulk_csv(
-            newest_date_to_fetch,  # type: ignore
-            oldest_date_to_fetch,  # type: ignore
-            district_name,
-            force_refresh,
+            newest_date=newest_date_to_fetch,  # type: ignore
+            oldest_date=oldest_date_to_fetch,  # type: ignore
+            district_name=district_name,
+            dataset_index=dataset_index,
+            force_refresh=force_refresh,
         )
 
 
