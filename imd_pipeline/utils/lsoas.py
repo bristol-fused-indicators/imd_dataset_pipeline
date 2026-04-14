@@ -23,12 +23,10 @@ def get_district_slug(district_name: str) -> str:
         >>> district_slug("Bournemouth, Christchurch and Poole")
         'bournemouth_christchurch_and_poole'
     """
-    return district_name.replace(" ", "_").lower().strip("_")
+    return district_name.replace(" ", "_").lower().strip("_").replace(",", "")
 
 
-def filter_lsoas(
-    lf: pl.LazyFrame, code_col: str, district_name: str, geography_path: Path
-) -> pl.LazyFrame:
+def filter_lsoas(lf: pl.LazyFrame, code_col: str, district_name: str, geography_path: Path) -> pl.LazyFrame:
     """Filters a Polars LazyFrame to region's LSOAs only.
 
     Args:
@@ -60,9 +58,7 @@ def filter_lsoas(
     return result
 
 
-def convert_2011_to_2021(
-    lf: pl.LazyFrame, col: str, lookup_path: Path, by: str = "code"
-) -> pl.LazyFrame:
+def convert_2011_to_2021(lf: pl.LazyFrame, col: str, lookup_path: Path, by: str = "code") -> pl.LazyFrame:
     """Converts LSOA codes or names from the 2011 to 2021 classification.
 
     Args:
@@ -89,9 +85,7 @@ def convert_2011_to_2021(
     return result
 
 
-def map_lsoa_names_to_codes(
-    lf: pl.LazyFrame, name_col: str, lookup_path: Path
-) -> pl.LazyFrame:
+def map_lsoa_names_to_codes(lf: pl.LazyFrame, name_col: str, lookup_path: Path) -> pl.LazyFrame:
     """Replaces a column of 2021 LSOA names with their corresponding LSOA codes.
 
     Args:
@@ -114,9 +108,7 @@ def map_lsoa_names_to_codes(
     return result
 
 
-def map_postcode_to_lsoa_code(
-    lf: pl.LazyFrame, postcode_col: str, lookup_path: Path
-) -> pl.LazyFrame:
+def map_postcode_to_lsoa_code(lf: pl.LazyFrame, postcode_col: str, lookup_path: Path) -> pl.LazyFrame:
     """Replaces a postcode column with the corresponding LSOA code.
 
     Args:
@@ -130,6 +122,4 @@ def map_postcode_to_lsoa_code(
     logger.debug("mapping postcode to lsoa", on_col=postcode_col)
     mapping = pl.scan_csv(lookup_path).select("postcode", "lsoa_code")
 
-    return lf.join(mapping, how="left", left_on=postcode_col, right_on="postcode").drop(
-        postcode_col
-    )
+    return lf.join(mapping, how="left", left_on=postcode_col, right_on="postcode").drop(postcode_col)
