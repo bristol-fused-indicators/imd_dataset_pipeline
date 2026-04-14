@@ -18,7 +18,7 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.lsoas import get_district_slug, get_target_codes
+from imd_pipeline.utils.lsoas import convert_2011_to_2021, get_district_slug, get_target_codes
 from imd_pipeline.utils.timeframes import get_window_bounds, months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
@@ -369,7 +369,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                     street_df = pl.read_csv(f)
                     street_dfs.append(street_df)
 
-            street_df = pl.concat(street_dfs, how="vertical")
+            street_df: pl.DataFrame = pl.concat(street_dfs, how="vertical")
             street_df = street_df.drop_nulls(subset="Crime ID")
 
             if files["outcomes"]:
@@ -379,23 +379,35 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                         outcomes_df = pl.read_csv(f)
                         outcome_dfs.append(outcomes_df)
 
-                outcomes_df = pl.concat(outcome_dfs, how="vertical")
+                outcomes_df: pl.DataFrame = pl.concat(outcome_dfs, how="vertical")
                 outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
 
                 merged = street_df.join(outcomes_df, on="Crime ID", how="left")
             else:
                 merged = street_df
 
-            merged = merged.filter(pl.col("LSOA code").is_in(target_codes)).with_columns(pl.lit(month).alias("month"))
-
-            merged.select(
-                [
-                    "month",
-                    pl.col("Crime type").alias("category"),
-                    pl.col("LSOA code").alias("lsoa_code"),
-                    pl.col("Outcome type").alias("outcome_status"),
-                ]
-            ).write_parquet(paths.data_raw / district_slug / "police_uk" / f"{month}.parquet")
+            merged = (
+                (
+                    merged.lazy()
+                    .pipe(
+                        convert_2011_to_2021,
+                        col="LSOA code",
+                        lookup_path=paths.data_reference / "lsoa_2011_2021_lookup.csv",
+                    )
+                    .filter(pl.col("LSOA code").is_in(target_codes))
+                    .with_columns(pl.lit(month).alias("month"))
+                )
+                .select(
+                    [
+                        "month",
+                        pl.col("Crime type").alias("category"),
+                        pl.col("LSOA code").alias("lsoa_code"),
+                        pl.col("Outcome type").alias("outcome_status"),
+                    ]
+                )
+                .collect()
+                .write_parquet(paths.data_raw / district_slug / "police_uk" / f"{month}.parquet")
+            )
 
 
 def fetch_bulk_csv(
