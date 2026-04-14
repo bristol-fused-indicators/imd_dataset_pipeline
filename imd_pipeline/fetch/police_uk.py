@@ -366,7 +366,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
             street_dfs = []
             for file in files["street"]:
                 with z.open(file) as f:
-                    street_df = pl.read_csv(f)
+                    street_df = pl.read_csv(f, infer_schema=False)
                     street_dfs.append(street_df)
 
             street_df: pl.DataFrame = pl.concat(street_dfs, how="vertical")
@@ -376,7 +376,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                 outcome_dfs = []
                 for file in files["outcomes"]:
                     with z.open(file) as f:
-                        outcomes_df = pl.read_csv(f)
+                        outcomes_df = pl.read_csv(f, infer_schema=False)
                         outcome_dfs.append(outcomes_df)
 
                 outcomes_df: pl.DataFrame = pl.concat(outcome_dfs, how="vertical")
@@ -392,7 +392,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                     .pipe(
                         convert_2011_to_2021,
                         col="LSOA code",
-                        lookup_path=paths.data_reference / "lsoa_2011_2021_lookup.csv",
+                        lookup_path=paths.data_lookup / "lsoa_2011_2021_lookup.csv",
                     )
                     .filter(pl.col("LSOA code").is_in(target_codes))
                     .with_columns(pl.lit(month).alias("month"))
@@ -549,10 +549,11 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
     # date range not covered by api, only
     else:
         fetch_bulk_csv(
-            newest_date_to_fetch,  # type: ignore
-            oldest_date_to_fetch,  # type: ignore
-            district_name,
-            force_refresh,
+            newest_date=newest_date_to_fetch,  # type: ignore
+            oldest_date=oldest_date_to_fetch,  # type: ignore
+            district_name=district_name,
+            dataset_index=dataset_index,
+            force_refresh=force_refresh,
         )
 
 
