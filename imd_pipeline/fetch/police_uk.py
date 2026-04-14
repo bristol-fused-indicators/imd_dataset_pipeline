@@ -7,11 +7,11 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import geopandas as gpd
-from geopolars.datasets import available
 import polars as pl
 import requests
 from bs4 import BeautifulSoup as bs
 from dateutil.relativedelta import relativedelta
+from geopolars.datasets import available
 from loguru import logger
 from project_paths import paths
 from ratelimit import limits
@@ -282,11 +282,7 @@ def build_dataset_index() -> dict:
     return dict(sorted(dataset_index.items(), reverse=True))
 
 
-def fetch_url_from_dates(
-    newest_date: datetime,
-    oldest_date: datetime,
-    dataset_index: dict
-) -> list[str]:
+def fetch_url_from_dates(newest_date: datetime, oldest_date: datetime, dataset_index: dict) -> list[str]:
     """
     Find the specific download links needed to fulfill the respective given data range.
 
@@ -343,34 +339,47 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
     target_codes = get_target_codes(district_name)
     # TODO: clean up this function, not particurlalry readable
 
+    monthly_files = defaultdict(dict)
+
     # Get paths to reqauired files
     with zipfile.ZipFile(zip_path, "r") as z:
-        monthly_files = defaultdict(dict)
-
         for file in z.namelist():
             month = file.split("/")[0]
+
+            if not monthly_files.get(month):
+                monthly_files[month]["street"] = []
+                monthly_files[month]["outcomes"] = []
+
             if not force_refresh:
                 month_path = paths.data_raw / get_district_slug(district_name) / "police_uk" / f"{month}.parquet"
                 if month_path.exists():
                     continue
             if "street" in file:
-                monthly_files[month]["street"] = file
+                monthly_files[month]["street"].append(file)
             elif "outcomes" in file:
-                monthly_files[month]["outcomes"] = file
+                monthly_files[month]["outcomes"].append(file)
 
         for month, files in monthly_files.items():
-            if "street" not in files:
+            if not files["street"]:
                 continue
 
-            with z.open(files["street"]) as f:
-                street_df = pl.read_csv(f)
+            street_dfs = []
+            for file in files["street"]:
+                with z.open(file) as f:
+                    street_df = pl.read_csv(f)
+                    street_dfs.append(street_df)
 
+            street_df = pl.concat(street_dfs, how="vertical")
             street_df = street_df.drop_nulls(subset="Crime ID")
 
-            if "outcomes" in files:
-                with z.open(files["outcomes"]) as f:
-                    outcomes_df = pl.read_csv(f)
+            if files["outcomes"]:
+                outcome_dfs = []
+                for file in files["outcomes"]:
+                    with z.open(file) as f:
+                        outcomes_df = pl.read_csv(f)
+                        outcome_dfs.append(outcomes_df)
 
+                outcomes_df = pl.concat(outcome_dfs, how="vertical")
                 outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
 
                 merged = street_df.join(outcomes_df, on="Crime ID", how="left")
@@ -390,11 +399,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
 
 
 def fetch_bulk_csv(
-    newest_date: datetime,
-    oldest_date: datetime,
-    district_name: str,
-    dataset_index: dict,
-    force_refresh: bool = False
+    newest_date: datetime, oldest_date: datetime, district_name: str, dataset_index: dict, force_refresh: bool = False
 ):
     """This is the main function for fetching by bulk csv download. Once the download url assosciated with the desired
     csvs are found, loops through the list of urls for data fetching and processing. Once all processes are done, the large
@@ -405,7 +410,6 @@ def fetch_bulk_csv(
         oldest_date: The oldes requested date
         district_name: Name of local authority to fetch from
         dataset_index: Dictionary of start, end dates and download link extensions"""
-
 
     # TODO: Add logic to recognise if files already downloaded, add relevance to force_refresh
 
@@ -462,7 +466,6 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     # check cache hit
     if not force_refresh:
-
         for month in months_requested:
             month_path = paths.data_raw / get_district_slug(district_name) / "police_uk" / f"{month}.parquet"
 
@@ -490,17 +493,17 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     if newest_date_to_fetch == None:
         logger.debug("all requested police uk data found in cache")
-        return 
+        return
 
     logger.debug(f"police uk data available from {min_avail} to {max_avail}")
     logger.debug(f"newest date to fetch after trimming: {newest_date_to_fetch}")
     logger.debug(f"oldest date to fetch after trimming: {oldest_date_to_fetch}")
     logger.debug(f"api date limit: {api_date_limit}")
 
-    api_fetch_threshold = 2 # number of months to fetch via API
+    api_fetch_threshold = 2  # number of months to fetch via API
 
     # fetch with just api
-    
+
     if api_fetch_threshold >= len(months_to_fetch):
         fetch_api(
             snapshot_date=str(newest_date_to_fetch),
@@ -511,7 +514,6 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     # fetch partially with api
     elif newest_date_to_fetch >= api_date_limit:
-
         """Note: we are not considering using a ceiling because we have already ensured all dates are
         changed to the 1st of the month."""
 
