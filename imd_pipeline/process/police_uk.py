@@ -47,9 +47,7 @@ CRIME_OUTCOMES = [
 def _valid_names(window_months: int, snapshot_date: str) -> frozenset[str]:
     """Cached helper for file_in_window - precomputes the set of valid month filenames for a time window."""
     # want to use a set for quick membership check, but cache requires a hashable object, so a frozenset is used
-    return frozenset(
-        f"{month}.parquet" for month in months_in_window(snapshot_date, window_months)
-    )
+    return frozenset(f"{month}.parquet" for month in months_in_window(snapshot_date, window_months))
 
 
 def file_in_window(filename, window_months, snapshot_date) -> bool:
@@ -98,12 +96,8 @@ def aggregate_to_lsoa(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 def derive_stats(lf: pl.LazyFrame) -> pl.LazyFrame:
     """Pipeable func - adds total_crimes (sum of category counts) and resolution_rate (outcomes / total_crimes)."""
-    return lf.with_columns(
-        pl.sum_horizontal(slt.by_name(CRIME_CATEGORIES)).alias("total_crimes")
-    ).with_columns(
-        (pl.sum_horizontal(slt.by_name(CRIME_OUTCOMES)) / pl.col("total_crimes")).alias(
-            "resolution_rate"
-        )
+    return lf.with_columns(pl.sum_horizontal(slt.by_name(CRIME_CATEGORIES)).alias("total_crimes")).with_columns(
+        (pl.sum_horizontal(slt.by_name(CRIME_OUTCOMES)) / pl.col("total_crimes")).alias("resolution_rate")
     )
 
 
@@ -132,9 +126,7 @@ def process(
         snapshot_date=snapshot_date,
     )
     dir = paths.data_raw / district_slug / "police_uk"
-    is_valid_file = partial(
-        file_in_window, window_months=window_months, snapshot_date=snapshot_date
-    )
+    is_valid_file = partial(file_in_window, window_months=window_months, snapshot_date=snapshot_date)
 
     files = [file for file in dir.glob("*.parquet") if is_valid_file(file.name)]
     logger.info("found files in window", count=len(files))
@@ -152,12 +144,8 @@ def process(
     )
 
     if persist_processed_file:
-        dataframe.sink_parquet(
-            paths.data_processed / district_slug / "police_uk.parquet"
-        )
-        logger.info(
-            "police data written", path=str(paths.data_processed / "police_uk.parquet")
-        )
+        dataframe.sink_parquet(paths.data_processed / district_slug / "police_uk.parquet")
+        logger.info("police data written", path=str(paths.data_processed / "police_uk.parquet"))
 
     return dataframe
 
