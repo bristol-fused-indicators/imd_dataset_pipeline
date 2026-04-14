@@ -10,7 +10,7 @@ CHUNK_SIZE = 8192
 
 
 def create_session(
-    retries: int = 5,
+    retries: int = 10,
     backoff: float = 2,
     status_forcelist: list[int] | None = None,
 ) -> requests.Session:
@@ -30,6 +30,7 @@ def create_session(
         backoff_factor=backoff,
         status_forcelist=status_forcelist,
         respect_retry_after_header=True,
+        allowed_methods={"GET", "POST", "HEAD"},
     )
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=retry))
