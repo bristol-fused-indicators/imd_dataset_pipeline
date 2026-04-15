@@ -26,6 +26,23 @@ ARCHIVE_URL = "https://data.police.uk/data/archive/"
 MAX_MONTHS = 36
 
 
+CSV_TO_API_CATEGORIES = {
+    "Bicycle theft": "bicycle-theft",
+    "Burglary": "burglary",
+    "Criminal damage and arson": "criminal-damage-arson",
+    "Drugs": "drugs",
+    "Other crime": "other-crime",
+    "Other theft": "other-theft",
+    "Possession of weapons": "possession-of-weapons",
+    "Public order": "public-order",
+    "Robbery": "robbery",
+    "Shoplifting": "shoplifting",
+    "Theft from the person": "theft-from-the-person",
+    "Vehicle crime": "vehicle-crime",
+    "Violence and sexual offences": "violent-crime",
+}
+
+
 def extract_largest_polygon(geom) -> Polygon:
     """Returns the largest polygon from a geometry, or the input if already a Polygon.
 
@@ -400,7 +417,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                 .select(
                     [
                         "month",
-                        pl.col("Crime type").alias("category"),
+                        pl.col("Crime type").replace(CSV_TO_API_CATEGORIES).alias("category"),
                         pl.col("LSOA code").alias("lsoa_code"),
                         pl.col("Outcome type").alias("outcome_status"),
                     ]
