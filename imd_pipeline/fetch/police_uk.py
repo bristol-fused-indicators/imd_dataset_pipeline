@@ -533,7 +533,7 @@ def fetch(district_name: str, snapshot_date="2025-12-01", window_months=12, forc
 
     # fetch with just api
 
-    if api_fetch_threshold >= len(months_to_fetch):
+    if api_fetch_threshold >= len(months_to_fetch) and oldest_date_to_fetch >= api_date_limit:
         fetch_api(
             snapshot_date=str(newest_date_to_fetch),
             window_months=api_fetch_threshold,
