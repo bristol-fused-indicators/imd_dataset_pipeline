@@ -18,12 +18,29 @@ from ratelimit import limits
 from shapely.geometry import Polygon, shape
 
 from imd_pipeline.utils.http import create_session
-from imd_pipeline.utils.lsoas import get_district_slug, get_target_codes
+from imd_pipeline.utils.lsoas import convert_2011_to_2021, get_district_slug, get_target_codes
 from imd_pipeline.utils.timeframes import get_window_bounds, months_in_window
 
 STREETLEVEL_URL = "https://data.police.uk/api/crimes-street/all-crime"
 ARCHIVE_URL = "https://data.police.uk/data/archive/"
 MAX_MONTHS = 36
+
+
+CSV_TO_API_CATEGORIES = {
+    "Bicycle theft": "bicycle-theft",
+    "Burglary": "burglary",
+    "Criminal damage and arson": "criminal-damage-arson",
+    "Drugs": "drugs",
+    "Other crime": "other-crime",
+    "Other theft": "other-theft",
+    "Possession of weapons": "possession-of-weapons",
+    "Public order": "public-order",
+    "Robbery": "robbery",
+    "Shoplifting": "shoplifting",
+    "Theft from the person": "theft-from-the-person",
+    "Vehicle crime": "vehicle-crime",
+    "Violence and sexual offences": "violent-crime",
+}
 
 
 def extract_largest_polygon(geom) -> Polygon:
@@ -339,50 +356,75 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
     target_codes = get_target_codes(district_name)
     # TODO: clean up this function, not particurlalry readable
 
+    monthly_files = defaultdict(dict)
+
     # Get paths to reqauired files
     with zipfile.ZipFile(zip_path, "r") as z:
-        monthly_files = defaultdict(dict)
-
         for file in z.namelist():
             month = file.split("/")[0]
+
+            if not monthly_files.get(month):
+                monthly_files[month]["street"] = []
+                monthly_files[month]["outcomes"] = []
+
             if not force_refresh:
                 month_path = paths.data_raw / get_district_slug(district_name) / "police_uk" / f"{month}.parquet"
                 if month_path.exists():
                     continue
             if "street" in file:
-                monthly_files[month]["street"] = file
+                monthly_files[month]["street"].append(file)
             elif "outcomes" in file:
-                monthly_files[month]["outcomes"] = file
+                monthly_files[month]["outcomes"].append(file)
 
         for month, files in monthly_files.items():
-            if "street" not in files:
+            if not files["street"]:
                 continue
 
-            with z.open(files["street"]) as f:
-                street_df = pl.read_csv(f)
+            street_dfs = []
+            for file in files["street"]:
+                with z.open(file) as f:
+                    street_df = pl.read_csv(f, infer_schema=False)
+                    street_dfs.append(street_df)
 
+            street_df: pl.DataFrame = pl.concat(street_dfs, how="vertical")
             street_df = street_df.drop_nulls(subset="Crime ID")
 
-            if "outcomes" in files:
-                with z.open(files["outcomes"]) as f:
-                    outcomes_df = pl.read_csv(f)
+            if files["outcomes"]:
+                outcome_dfs = []
+                for file in files["outcomes"]:
+                    with z.open(file) as f:
+                        outcomes_df = pl.read_csv(f, infer_schema=False)
+                        outcome_dfs.append(outcomes_df)
 
+                outcomes_df: pl.DataFrame = pl.concat(outcome_dfs, how="vertical")
                 outcomes_df = outcomes_df.drop_nulls(subset=["Crime ID"])
 
                 merged = street_df.join(outcomes_df, on="Crime ID", how="left")
             else:
                 merged = street_df
 
-            merged = merged.filter(pl.col("LSOA code").is_in(target_codes)).with_columns(pl.lit(month).alias("month"))
-
-            merged.select(
-                [
-                    "month",
-                    pl.col("Crime type").alias("category"),
-                    pl.col("LSOA code").alias("lsoa_code"),
-                    pl.col("Outcome type").alias("outcome_status"),
-                ]
-            ).write_parquet(paths.data_raw / district_slug / "police_uk" / f"{month}.parquet")
+            merged = (
+                (
+                    merged.lazy()
+                    .pipe(
+                        convert_2011_to_2021,
+                        col="LSOA code",
+                        lookup_path=paths.data_lookup / "lsoa_2011_2021_lookup.csv",
+                    )
+                    .filter(pl.col("LSOA code").is_in(target_codes))
+                    .with_columns(pl.lit(month).alias("month"))
+                )
+                .select(
+                    [
+                        "month",
+                        pl.col("Crime type").replace(CSV_TO_API_CATEGORIES).alias("category"),
+                        pl.col("LSOA code").alias("lsoa_code"),
+                        pl.col("Outcome type").alias("outcome_status"),
+                    ]
+                )
+                .collect()
+                .write_parquet(paths.data_raw / district_slug / "police_uk" / f"{month}.parquet")
+            )
 
 
 def fetch_bulk_csv(
