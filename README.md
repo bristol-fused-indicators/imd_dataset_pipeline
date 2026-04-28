@@ -18,13 +18,15 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+It will be possible to use the code using pip or conda to manage the project, but instructions will not be provided.
+
 You also need a Stat-Xplore API key for the Universal Credit data source. Register at [stat-xplore.dwp.gov.uk](https://stat-xplore.dwp.gov.uk/) — it's free
 
 ### Clone and install
 
 ```bash
-git clone https://github.com/fused-indicators/imd-dataset-pipeline.git
-cd imd-dataset-pipeline
+git clone https://github.com/fused-indicators/imd_dataset_pipeline.git
+cd imd_dataset_pipeline 
 uv sync
 ```
 
@@ -38,6 +40,8 @@ Copy the example file and add your API key:
 cp .env.example .env
 ```
 
+Or just copy and paste it in your IDE, and rename it to `.env` yourself.
+
 Edit `.env` and set:
 
 ```
@@ -49,7 +53,6 @@ STATXPLORE_API_KEY=your_key_here
 ```bash
 uv run python main.py
 ```
-
 
 This fetches raw data from all sources, processes each into LSOA grain features, and combines them into a single output file at `data/output/combined_indicators.parquet`.
 
@@ -63,23 +66,92 @@ uv run python -m imd_pipeline.process.police_uk
 ```
 
 
-### Run the pipeline using orchestration
+## Running the pipeline
 
-Sync the virtual environment with the dev dependency group to add dagster, then activate the virtual environment
+The pipeline can be run in three ways, each suited to different needs:
 
+### Option 1: Direct Python runner (`main.py`)
+
+Runs the pipeline once, reading configuration from TOML files. This is the simplest way to test changes locally.
+
+```bash
+uv run python main.py
 ```
+
+This reads:
+- `config/pipeline_parameters.toml` — `window_months` (timespan for aggregation)
+- `config/run_parameters.toml` — `snapshot_date` (end date for the window) and `lad_names` (list of districts to process)
+
+Example `config/run_parameters.toml`:
+```toml
+[snapshot]
+date = 2025-12-01
+
+[scope]
+lad_names = ["Bristol, City of"]
+```
+
+### Option 2: Dagster UI (orchestration demo)
+
+Demonstrates how the pipelines data collection could be automated via scheduled jobs. Uses Dagster's asset DAG,
+freshness policies, and schedules. Assets are partitioned per district, with example schedules defined for Bristol.
+
+**Setup:**
+```bash
 uv sync --dev
+```
+
+**Activate the virtual environment:**
+
+On Windows (powershell):
+```powershell
 .venv\scripts\activate
 ```
 
-spin up dagster locally
-
+On mac/Linux:
+```bash
+source .venv/bin/activate
 ```
+
+**Start Dagster:**
+```bash
 dagster dev -m orchestration
 ```
 
-Once started, dagster serves on localhost port 3000.
-Here, you will be able to see the dag in the browser with asset definitions. Materializing an asset will refresh that data.
+Dagster serves on `http://localhost:3000`. You will see:
+- An asset DAG showing the data pipeline structure (fetch -> process -> combine)
+- Assets partitioned by district (Bristol, Exeter, Plymouth, Newcastle upon Tyne, Bournemouth/Christchurch/Poole, Sheffield)
+- Freshness policies and cron schedules that trigger Bristol-only runs monthly/quarterly/annually
+- Ability to manually materialise any asset or partition via the UI
+
+**To materialise a single asset for Bristol:**
+1. Navigate to the asset in the DAG
+2. Click "Materialise" 
+3. Select partition "Bristol, City of"
+4. View logs in the Runs tab
+
+This demonstrates how a production deployment would automatically collect and process district data on a schedule.
+
+### Option 3: Historical backfill (`scripts/quarterly_backfill_op.py`)
+
+A standalone script for running the full historical pipeline across multiple dates (2019–2025) and cities.
+Useful for generating snapshots at anchor dates (all 6 cities) and quarterly intervals (Bristol only).
+
+**What it does:**
+- Generates quarterly snapshot dates from 2019-09-01 to 2025-10-01
+- For anchor dates (2019-09-01 and 2025-10-01): processes all cities
+- For quarterly dates in between: processes Bristol only
+- Skips snapshots that have already been computed
+- Renames output files per snapshot date for archival
+
+**Run:**
+```bash
+uv run python scripts/quarterly_backfill_op.py
+```
+
+This overwrites `config/run_parameters.toml` for each run, so use it in isolation or revert the config afterwards.
+
+The output of this method produces all the data needed to replicate the nowcasting research - note that you will have to combine the data of multiple cities for the anchor files using the stitch.py script (updated the date in the filepath to the appropriate one and running twice).
 
 
 ## Project Structure
