@@ -87,8 +87,8 @@ Here, you will be able to see the dag in the browser with asset definitions. Mat
 ```
 imd-dataset-pipeline/
 ├─── config/
-│       ├─── pipeline.toml          # pipeline desing parameters (stable across runs)
-│       └─── run.toml               # runtime parameters (snapshot date, scope)
+│       ├─── pipeline_parameters.toml    # pipeline design parameters (stable across runs)
+│       └─── run_parameters.toml         # runtime parameters (snapshot date, scope)
 ├─── data/
 │       ├─── config/                # amenity groups, query templates
 │       ├─── lookup/                # LSOA boundaries, postcode mappings (committed)
@@ -97,10 +97,20 @@ imd-dataset-pipeline/
 │       └─── output/                # final unified dataset (gitignored)
 ├─── imd_pipeline/                  # core package
 │       ├─── fetch/                 # one module per source — downloads raw data
-│       ├─── process/               # one module per source — transforms to LSOA orented feature sets
+│       ├─── process/               # one module per source — transforms to LSOA oriented feature sets
 │       ├─── combine/               # joins processed sources into unified dataset
 │       └─── utils/                 # shared functions (HTTP, LSOA mapping)
-└─── main.py                        # runner
+├─── orchestration/                 # Dagster definitions for demonstration
+│       ├─── assets.py              # asset DAG per data source
+│       ├─── jobs.py                # job groupings
+│       ├─── schedules.py           # cron schedules (Bristol partition only)
+│       ├─── configs.py             # TimeframeConfig for snapshot_date/window_months
+│       └─── definitions.py         # Dagster Definitions export
+├─── scripts/
+│       └─── quarterly_backfill_op.py    # standalone script for historical backfill
+├─── tests/
+├─── main.py                        # entry point for a single run
+└─── pyproject.toml
 ```
 
 
