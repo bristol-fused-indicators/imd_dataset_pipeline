@@ -28,15 +28,11 @@ QUERY_CONDITIONS = {
 DATE_RECODE_KEY = "str:field:UC_Monthly:F_UC_DATE:DATE_NAME"
 QUERY_DATE_STEM = "str:value:UC_Monthly:F_UC_DATE:DATE_NAME:C_UC_DATE"
 
-CONDITION_RECODE_KEY = (
-    "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
-)
+CONDITION_RECODE_KEY = "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME"
 QUERY_CONDITION_STEM = "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:CCCONDITIONALITY_REGIME:C_UC_CONDITIONALITY_REGIME"
 
 LSOA_KEY = "str:field:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE"
-LSOA_STEM = (
-    "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA"
-)
+LSOA_STEM = "str:value:UC_Monthly:V_F_UC_CASELOAD_FULL:COA_CODE:V_C_MASTERGEOG21_LSOA_TO_MSOA"
 
 STATXPLORE_URL = "https://stat-xplore.dwp.gov.uk/webapi/rest/v1/table"
 
@@ -55,14 +51,10 @@ def construct_queries(
         raise TypeError("make sure the stat-xplore template query is valid json")
 
     # set date
-    query["recodes"][DATE_RECODE_KEY]["map"] = [
-        [f"{QUERY_DATE_STEM}:{month}"] for month in months
-    ]
+    query["recodes"][DATE_RECODE_KEY]["map"] = [[f"{QUERY_DATE_STEM}:{month}"] for month in months]
 
     # set uc condition
-    query["recodes"][CONDITION_RECODE_KEY]["map"] = [
-        [f"{QUERY_CONDITION_STEM}:{condition}"]
-    ]
+    query["recodes"][CONDITION_RECODE_KEY]["map"] = [[f"{QUERY_CONDITION_STEM}:{condition}"]]
 
     codes = [[f"{LSOA_STEM}:{code}"] for code in get_target_codes(district_name)]
     query["recodes"][LSOA_KEY]["map"] = codes
@@ -70,17 +62,13 @@ def construct_queries(
     return query
 
 
-def get_queries(
-    snapshot_date: str, window_months: int, district_name: str
-) -> dict[str, dict]:
+def get_queries(snapshot_date: str, window_months: int, district_name: str) -> dict[str, dict]:
 
     months = months_in_window(snapshot_date, window_months)
     formatted_months = [month.replace("-", "") for month in months]
 
     return {
-        name: construct_queries(
-            condition=condition, months=formatted_months, district_name=district_name
-        )
+        name: construct_queries(condition=condition, months=formatted_months, district_name=district_name)
         for name, condition in QUERY_CONDITIONS.items()
     }
 
@@ -130,9 +118,7 @@ def transform_to_dataframe(dataset) -> pl.DataFrame:
     # todo rewrite this - [val[0] is fragile, plus nested list comp
     key = next(iter(dataset["cubes"]))
     data_body = dataset["cubes"][key]["values"]
-    data_body = [
-        [val[0] if isinstance(val, list) else val for val in row] for row in data_body
-    ]
+    data_body = [[val[0] if isinstance(val, list) else val for val in row] for row in data_body]
 
     # construct dataframe
     df = (
@@ -169,16 +155,11 @@ def fetch(
 
     logger.info("got responses", count=len(responses), names=list(responses.keys()))
 
-    dataframes = {
-        name: transform_to_dataframe(response) for name, response in responses.items()
-    }
+    dataframes = {name: transform_to_dataframe(response) for name, response in responses.items()}
 
     logger.debug("transformed queries to dataframes", names=list(dataframes.keys()))
 
-    dataframes = [
-        dataframe.with_columns(condition_group=pl.lit(name))
-        for name, dataframe in dataframes.items()
-    ]
+    dataframes = [dataframe.with_columns(condition_group=pl.lit(name)) for name, dataframe in dataframes.items()]
     combined_frame = pl.concat(dataframes)
     logger.debug(
         "condition groups in combined frame",
