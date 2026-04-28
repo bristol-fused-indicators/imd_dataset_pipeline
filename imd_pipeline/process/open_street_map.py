@@ -407,7 +407,7 @@ def process(
     if persist_processed_file:
         output_path = paths.data_processed / district_slug / "open_street_map.parquet"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        lsoa_gdf.to_parquet()
+        lsoa_gdf.to_parquet(path=output_path)
 
     return pl.from_pandas(lsoa_gdf).lazy()
 
