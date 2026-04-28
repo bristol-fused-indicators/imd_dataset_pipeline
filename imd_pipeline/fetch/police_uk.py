@@ -409,7 +409,7 @@ def produce_monthly_outputs(district_name: str, zip_path: Path, force_refresh: b
                     .pipe(
                         convert_2011_to_2021,
                         col="LSOA code",
-                        lookup_path=paths.data_lookup / "lsoa_2011_2021_lookup.csv",
+                        lookup_path=paths.data_reference / "lsoa_lookup.csv",
                     )
                     .filter(pl.col("LSOA code").is_in(target_codes))
                     .with_columns(pl.lit(month).alias("month"))
