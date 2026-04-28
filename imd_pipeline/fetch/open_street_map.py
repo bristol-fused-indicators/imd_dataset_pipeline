@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 import geopandas as gpd
@@ -88,10 +89,13 @@ def fetch(
     if snapshot_date:
         timestamp = f"{snapshot_date}T00:00:00Z"
         date_clause = f'[date:"{timestamp}"]'
-        filename = f"overpass_response_{snapshot_date}.json"
+        file_date = snapshot_date
     else:
         date_clause = ""
-        filename = "overpass_response.json"
+        today = date.today()
+        file_date = today.replace(day=1).strftime("%Y-%m-%d")
+
+    filename = f"overpass_response_{file_date}.json"
 
     district_slug = get_district_slug(district_name)
     output_path = paths.data_raw / district_slug / "osm" / filename

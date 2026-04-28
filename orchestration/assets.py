@@ -73,19 +73,18 @@ def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConf
 
 @asset(partitions_def=district_partitions, freshness_policy=quarterly_freshness_policy)
 def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
+    from datetime import date as date_class
     district_name = context.partition_key
     fetch.open_street_map.fetch(
         district_name=district_name,
         force_refresh=config.force_refresh,
-        snapshot_date=config.snapshot_date,
     )
 
     district_slug = get_district_slug(district_name)
-    output = paths.data_raw / district_slug / "osm" / f"overpass_response_{config.snapshot_date}.json"
-    if output.exists():
-        stat = output.stat()
-    else:
-        stat = None
+    today = date_class.today()
+    file_date = today.replace(day=1).strftime("%Y-%m-%d")
+    output = paths.data_raw / district_slug / "osm" / f"overpass_response_{file_date}.json"
+    stat = output.stat()
 
     return MaterializeResult(
         metadata={
@@ -94,8 +93,8 @@ def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeCo
             "window_months": config.window_months,
             "force_refresh": config.force_refresh,
             "output_path": str(output),
-            "file_size_mb": round(stat.st_size / 1_048_576, 2) if stat else "n/a",
-            "file_modified": stat.st_mtime if stat else "na/a",
+            "file_size_mb": round(stat.st_size / 1_048_576, 2),
+            "file_modified": stat.st_mtime,
         }
     )
 
@@ -137,7 +136,7 @@ def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeC
     )
 
     district_slug = get_district_slug(district_name)
-    output = paths.data_raw / district_slug / "universal_credit.parquet"
+    output = paths.data_raw / district_slug / "universal_credit" / "universal_credit.parquet"
     stat = output.stat()
 
     return MaterializeResult(
