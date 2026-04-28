@@ -292,7 +292,7 @@ def process(
         .pipe(
             map_postcode_to_lsoa_code,
             postcode_col="postcode",
-            lookup_path=paths.data_lookup / "postcode_lookup.csv",
+            lookup_path=paths.data_reference / "postcode_lookup.csv",
         )
         .pipe(
             filter_lsoas,
