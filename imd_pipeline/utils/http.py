@@ -105,7 +105,12 @@ def cached_fetch_json(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     logger.info("fetching JSON", url=url, output_path=output_path)
 
-    response = session.get(url, params=params)
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "imd-dataset-pipeline/1.0 (bristol-fused-indicators)",
+    }
+    response = session.get(url, params=params, headers=headers)
+    logger.debug(f"response status: {response.status_code} headers: {dict(response.headers)}")
     response.raise_for_status()
 
     with open(output_path, "w", encoding="utf-8") as f:
