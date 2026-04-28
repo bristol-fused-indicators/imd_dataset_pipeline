@@ -81,7 +81,7 @@ def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeCo
     )
 
     district_slug = get_district_slug(district_name)
-    output = paths.data_raw / district_slug / "osm" / "overpass_response.json"
+    output = paths.data_raw / district_slug / "osm" / f"overpass_response_{config.snapshot_date}.json"
     if output.exists():
         stat = output.stat()
     else:
