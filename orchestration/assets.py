@@ -82,7 +82,10 @@ def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeCo
 
     district_slug = get_district_slug(district_name)
     output = paths.data_raw / district_slug / "osm" / "overpass_response.json"
-    stat = output.stat()
+    if output.exists():
+        stat = output.stat()
+    else:
+        stat = None
 
     return MaterializeResult(
         metadata={
@@ -91,8 +94,8 @@ def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeCo
             "window_months": config.window_months,
             "force_refresh": config.force_refresh,
             "output_path": str(output),
-            "file_size_mb": round(stat.st_size / 1_048_576, 2),
-            "file_modified": stat.st_mtime,
+            "file_size_mb": round(stat.st_size / 1_048_576, 2) if stat else "n/a",
+            "file_modified": stat.st_mtime if stat else "na/a",
         }
     )
 
@@ -155,9 +158,7 @@ def universal_credit_raw_data(context: AssetExecutionContext, config: TimeframeC
     deps=[connectivity_raw_data],
     automation_condition=AutomationCondition.eager(),
 )
-def connectivity_processed_data(
-    context: AssetExecutionContext, config: TimeframeConfig
-):
+def connectivity_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     district_name = context.partition_key
     process.connectivity.process(district_name=district_name, persist_processed_file=True)
 
@@ -182,9 +183,7 @@ def connectivity_processed_data(
     partitions_def=district_partitions,
     deps=[land_registry_raw_data],
 )
-def land_registry_processed_data(
-    context: AssetExecutionContext, config: TimeframeConfig
-):
+def land_registry_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     district_name = context.partition_key
     process.land_registry.process(
         snapshot_date=config.snapshot_date,
@@ -215,9 +214,7 @@ def land_registry_processed_data(
     deps=[open_street_map_raw_data],
     automation_condition=AutomationCondition.eager(),
 )
-def open_street_map_processed_data(
-    context: AssetExecutionContext, config: TimeframeConfig
-):
+def open_street_map_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     district_name = context.partition_key
     process.open_street_map.process(district_name=district_name, persist_processed_file=True)
 
@@ -273,9 +270,7 @@ def crime_processed_data(context: AssetExecutionContext, config: TimeframeConfig
     deps=[universal_credit_raw_data],
     automation_condition=AutomationCondition.eager(),
 )
-def universal_credit_processed_data(
-    context: AssetExecutionContext, config: TimeframeConfig
-):
+def universal_credit_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     district_name = context.partition_key
     process.universal_credit.process(district_name=district_name, persist_processed_file=True)
 
