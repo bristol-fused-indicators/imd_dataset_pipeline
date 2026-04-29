@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from functools import partial
 from typing import Iterable
 
@@ -279,7 +280,11 @@ def process(
     if snapshot_date:
         response_file = paths.data_raw / district_slug / "osm" / f"overpass_response_{snapshot_date}.json"
     else:
-        response_file = paths.data_raw / district_slug / "osm" / "overpass_response.json"
+        # ! this is fragile, won't discover a file that was run last month.
+        # ! A better approach would be to write a helper function to discover the most recent file
+        today = date.today()
+        file_date = today.replace(day=1).strftime("%Y-%m-%d")
+        response_file = paths.data_raw / district_slug / "osm" / f"overpass_response_{file_date}.json"
 
     with open(response_file) as file:
         data = json.load(file)

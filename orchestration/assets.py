@@ -74,16 +74,14 @@ def land_registry_raw_data(context: AssetExecutionContext, config: TimeframeConf
 @asset(partitions_def=district_partitions, freshness_policy=quarterly_freshness_policy)
 def open_street_map_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     from datetime import date as date_class
+
     district_name = context.partition_key
     fetch.open_street_map.fetch(
-        district_name=district_name,
-        force_refresh=config.force_refresh,
+        district_name=district_name, force_refresh=config.force_refresh, snapshot_date=config.snapshot_date
     )
 
     district_slug = get_district_slug(district_name)
-    today = date_class.today()
-    file_date = today.replace(day=1).strftime("%Y-%m-%d")
-    output = paths.data_raw / district_slug / "osm" / f"overpass_response_{file_date}.json"
+    output = paths.data_raw / district_slug / "osm" / f"overpass_response_{config.snapshot_date}.json"
     stat = output.stat()
 
     return MaterializeResult(
@@ -215,7 +213,9 @@ def land_registry_processed_data(context: AssetExecutionContext, config: Timefra
 )
 def open_street_map_processed_data(context: AssetExecutionContext, config: TimeframeConfig):
     district_name = context.partition_key
-    process.open_street_map.process(district_name=district_name, persist_processed_file=True)
+    process.open_street_map.process(
+        district_name=district_name, persist_processed_file=True, snapshot_date=config.snapshot_date
+    )
 
     district_slug = get_district_slug(district_name)
     output = paths.data_processed / district_slug / "open_street_map.parquet"
