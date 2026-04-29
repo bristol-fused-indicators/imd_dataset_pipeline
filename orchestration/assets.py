@@ -33,7 +33,7 @@ district_partitions = StaticPartitionsDefinition(DISTRICT_NAMES)
 def connectivity_raw_data(context: AssetExecutionContext, config: TimeframeConfig):
     fetch.connectivity.fetch(force_refresh=config.force_refresh)
 
-    output = paths.data_raw / "connectivity.parquet"
+    output = paths.data_raw / "connectivity" / "connectivity.parquet"
     stat = output.stat()
 
     return MaterializeResult(
