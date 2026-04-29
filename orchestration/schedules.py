@@ -1,6 +1,6 @@
 from datetime import date
 
-from dagster import RunConfig, ScheduleDefinition
+from dagster import RunConfig, RunRequest, ScheduleDefinition
 
 from .configs import TimeframeConfig
 from .jobs import (
@@ -10,6 +10,8 @@ from .jobs import (
     refresh_osm_job,
     refresh_uc_job,
 )
+
+BRISTOL = "Bristol, City of"
 
 crons = {
     "monthly": "0 0 1 * *",
@@ -23,7 +25,10 @@ def _run_config(*asset_names: str):
         snapshot = date.today().replace(day=1).strftime("%Y-%m-%d")
         config = TimeframeConfig(snapshot_date=snapshot)
         ops = {asset_name: config for asset_name in asset_names}
-        return RunConfig(ops=ops)
+        return RunRequest(
+            partition_key=BRISTOL,
+            run_config=RunConfig(ops=ops),
+        )
 
     return _inner
 
@@ -46,7 +51,7 @@ universal_credit_schedule = ScheduleDefinition(
     name="universal_credit_schedule",
     cron_schedule=crons.get("monthly"),
     job=refresh_uc_job,
-    run_config_fn=_run_config("universal_credit_raw_data"),
+    run_config_fn=_run_config("universal_credit_raw_data", "universal_credit_processed_data"),
 )
 
 connectivity_schedule = ScheduleDefinition(
